@@ -6,3 +6,4 @@ Code/*
 !.gitignore
 !.gitattributes
 !gap-env.yml
+!README.md
