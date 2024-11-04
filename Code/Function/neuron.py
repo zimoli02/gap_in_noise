@@ -37,9 +37,9 @@ custom_params = {
     }
 sns.set_theme(style = "ticks", rc = custom_params)
 
-recordingpath = '/Volumes/Zimo/Auditory/Recordings/'
 basepath = '/Volumes/Zimo/Auditory/Data/'
-mouse = pd.read_csv('/Volumes/Zimo/GapInNoise/Code/Mouse_Tones.csv')
+recordingpath = '/Volumes/Research/GapInNoise/Data/Recordings/'
+mouse = pd.read_csv('//Volumes/Research/GapInNoise/Code/Mouse_Tones.csv')
 
 import warnings
 warnings.filterwarnings("ignore", message="Ignoring cached namespace 'hdmf-common'")

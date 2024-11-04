@@ -16,11 +16,11 @@ sys.path.insert(0, str(functions_dir))
 import neuron
 import result
 
-gpfapath = '/Volumes/Zimo/Auditory/GPFA/'
-grouppath = '/Volumes/Zimo/Auditory/Groups/'
-recordingpath = '/Volumes/Zimo/Auditory/Recordings/'
 basepath = '/Volumes/Zimo/Auditory/Data/'
-mouse = pd.read_csv('Mouse_Tones.csv')
+gpfapath = '/Volumes/Research/GapInNoise/Data/GPFA/'
+grouppath = '/Volumes/Research/GapInNoise/Data/Groups/'
+recordingpath = '/Volumes/Research/GapInNoise/Data/Recordings/'
+
 
 def create_gif(input_folder, output_file, duration=500):
     images = []
