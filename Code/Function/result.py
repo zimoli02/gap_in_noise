@@ -16,7 +16,10 @@ from scipy.ndimage import gaussian_filter, gaussian_filter1d
 from scipy.optimize import curve_fit
 from scipy.linalg import svd, orth
 from scipy.ndimage import gaussian_filter1d
+from scipy.signal import savgol_filter
+from scipy.interpolate import UnivariateSpline
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from statsmodels.nonparametric.smoothers_lowess import lowess
 
 from tqdm import tqdm
 import os
@@ -47,9 +50,9 @@ def Get_Plane_Colors(x, y, z):
     colors = []
     for i in range(len(x)):
         minn = min(abs(x[i]-x_border), abs(y[i]-y_border), abs(z[i]-z_border))
-        if abs(x[i]-x_border) == minn: colors.append('red')
-        if abs(y[i]-y_border) == minn: colors.append('blue')
-        if abs(z[i]-z_border) == minn: colors.append('orange')
+        if abs(x[i]-x_border) == minn: colors.append('pink')
+        if abs(y[i]-y_border) == minn: colors.append('lightblue')
+        if abs(z[i]-z_border) == minn: colors.append('yellow')
     return colors
 
 def style_3d_ax(ax, PC):
@@ -572,7 +575,7 @@ class PCA:
         plt.tight_layout()
         return fig
 
-    def Plot_Principal_Angle(self):
+    def Plot_Principal_Angle(self, dim = 5):
         fig, axs = plt.subplots(1, 3, figsize=(17, 5))
         count = 0
         for gap_type in [4,7,9]:
@@ -590,7 +593,7 @@ class PCA:
                     period1, period2 = periods[i], periods[j]
                     period1_pca = neuron.PCA(period1, multiple_gaps = False)
                     period2_pca = neuron.PCA(period2, multiple_gaps = False)
-                    angles = calculate_principal_angles(period1_pca.loading[:5].T, period2_pca.loading[:5].T)
+                    angles = calculate_principal_angles(period1_pca.loading[:dim].T, period2_pca.loading[:dim].T)
                     sim[i,j] = 1 - np.mean(angles) / (np.pi/2)
             sns.heatmap(sim, ax = axs[count], cmap = 'binary', vmax = 1, square=True,cbar = True)
             
@@ -940,53 +943,117 @@ class PCA:
 
         return fig1, fig2, fig3
 
-    def Plot_Noise_Return_Silence(self):
-        def calculate_distance(gap_idx, t):
-            score_per_gap = self.group.pca.score_per_gap[:3,gap_idx,:]
-            start = np.mean(score_per_gap[:,50:100], axis = 1)
-            return np.sqrt(np.sum((start - score_per_gap[:,t]) ** 2))
+    def Plot_Noise_Return_Silence(self, dim = 3):
+        def calculate_distance(gap_idx, start, end):
+            score_per_gap = self.group.pca.score_per_gap[:dim, gap_idx,:]
+            origin = np.mean(score_per_gap[:,50:100], axis = 1)
+            distance = []
+            for t in range(start, end): 
+                distance.append(np.sqrt(np.sum((origin - score_per_gap[:, t]) ** 2)))
+            return np.array(distance)
+        
+        def smooth_scatter(x, y, method='lowess'):
+            if len(y) < 3: return x, y
+            # LOWESS smoothing
+            smoothed = lowess(y, x, frac=0.3)
+            return smoothed[:, 0], smoothed[:, 1]
+        
+        def smooth_scatter_peak(x, y):
+            if len(y) < 3: return x, y
+            sort_idx = np.argsort(x)
+            x_sorted = x[sort_idx]
+            y_sorted = y[sort_idx]
+
+            # Find approximate peak location
+            window = min(len(y_sorted) // 5, 31)  # Adjust window size based on data length
+            if window % 2 == 0:
+                window += 1  # Ensure odd window size
+            poly_order = min(2, window - 1)  # Ensure polynomial order is less than window size
+            
+            # Use Savitzky-Golay filter with different parameters for rising and falling parts
+            y_smooth = savgol_filter(y_sorted, window, poly_order)
+            peak_idx = np.argmax(y_smooth)
+            
+            # Separate rising and falling parts
+            x_rise = x_sorted[:peak_idx+1]
+            y_rise = y_sorted[:peak_idx+1]
+            x_fall = x_sorted[peak_idx:]
+            y_fall = y_sorted[peak_idx:]
+            
+            # Fit each part separately
+            if len(x_rise) > 3:
+                spl_rise = UnivariateSpline(x_rise, y_rise, k=3, s=len(y_rise)*0.1)
+                y_rise_smooth = spl_rise(x_rise)
+            else:
+                y_rise_smooth = y_rise
+                
+            if len(x_fall) > 3:
+                spl_fall = UnivariateSpline(x_fall, y_fall, k=3, s=len(y_fall)*0.1)
+                y_fall_smooth = spl_fall(x_fall)
+            else:
+                y_fall_smooth = y_fall
+            
+            # Combine the parts
+            x_smooth = np.concatenate([x_rise, x_fall[1:]])
+            y_smooth = np.concatenate([y_rise_smooth, y_fall_smooth[1:]])
+            return x_smooth, y_smooth
+        
         fig1, axs = plt.subplots(2, 5, figsize = (30, 12))
-        Distance = []  
-        gaps = []
         axs = axs.flatten()
         for i in range(1,10):
+            pre_distance = calculate_distance(i, start = 300, end = 351)
+            axs[i].scatter(np.arange(-len(pre_distance),0,1), pre_distance, color = 'lightgreen', alpha = 0.7)
+            smoothed_x, smoothe_y = smooth_scatter(np.arange(-len(pre_distance),0,1), pre_distance)
+            axs[i].plot(smoothed_x, smoothe_y, linewidth = 4, color = 'grey')
             
-            gap_dur = round(self.group.gaps[i]*1000+350)
-            gaps.append(gap_dur-350)
+            gap_dur = round(self.group.gaps[i]*1000)            
+            distance = calculate_distance(i, start = 350, end = 350 + gap_dur)
+            axs[i].scatter(np.arange(gap_dur), distance, color = 'lightblue', alpha = 0.7)
             
-            distance = []
-            for t in range(350, gap_dur):
-                distance.append(calculate_distance(i, t))
-            Distance.append(distance[-1])
-            axs[i].scatter(np.arange(gap_dur-350), distance, color = 'darkblue')
-            time = np.argsort(distance)[::-1][0]
-            axs[i].scatter(time,distance[time],color = 'red', label = 'Peak Time: ' + str(time) + 'ms')
+            smoothed_x, smoothe_y = smooth_scatter_peak(np.arange(gap_dur), distance)
+            axs[i].plot(smoothed_x, smoothe_y, linewidth = 4, color = 'black')
+            
+            time = np.argsort(smoothe_y)[::-1][0]
+            axs[i].scatter([],[],color = 'red', label = 'Peak Time: ' + str(time) + 'ms')
+            axs[i].axvline(x=time, linestyle = '--', color = 'red')
+            
             axs[i].legend(loc = 'upper right', fontsize = 20)
-            axs[i].axhline(y=0, linestyle = '--', color = 'red')
-            axs[i].set_xlim((0, 260))
-            axs[i].set_ylim((-0.1, 2.55))
-            axs[i].set_xticks(np.arange(0, 255, 50), ['0', '50', '100', '150', '200', '250'], fontsize = 20)
-            axs[i].set_yticks(np.arange(0,2.6, 0.5), ['0', '0.5','1.0','1.5','2.0','2.5'], fontsize = 20)
+            axs[i].axhline(y=0, linestyle = '--', color = 'grey')
+            
+            axs[i].set_xlim((-50, 260))
+            #axs[i].set_ylim((-0.1, 2.55))
+            axs[i].set_xticks(np.arange(-50, 255, 50), ['-50', '0', '50', '100', '150', '200', '250'], fontsize = 20)
+            #axs[i].set_yticks(np.arange(0, 2.6, 0.5), ['0', '0.5','1.0','1.5','2.0','2.5'], fontsize = 20)
             axs[i].set_xlabel('Time Since Gap Start (ms)', fontsize = 20)
             axs[i].set_ylabel('Distance to Noise On-Set', fontsize = 20)
-            axs[i].set_title('Gap = ' + str(gaps[-1]) + 'ms', fontsize = 24)
+            axs[i].set_title('Gap = ' + str(gap_dur) + 'ms', fontsize = 24)
                     
         for i in range(1):
-            gap_dur = round(self.group.gaps[i]*1000+350)
-            distance = []
-            for t in range(gap_dur + 100, 1000):
-                distance.append(calculate_distance(i, t))
-            Distance.append(distance[-1])
-            axs[i].scatter(np.arange(len(distance)), distance, color = 'darkblue')
-            time = np.argsort(distance)[::-1][0]
-            axs[i].scatter(time,distance[time],color = 'red', label = 'Peak Time: ' + str(time) + 'ms')
+            pre_distance = calculate_distance(i, start = 300, end = 351)
+            axs[i].scatter(np.arange(-len(pre_distance),0,1), pre_distance, color = 'lightgreen', alpha = 0.7)
+            smoothed_x, smoothe_y = smooth_scatter(np.arange(-len(pre_distance),0,1), pre_distance)
+            axs[i].plot(smoothed_x, smoothe_y, linewidth = 4, color = 'grey')
+            
+            gap_dur = round(self.group.gaps[i]*1000)
+            distance = calculate_distance(i, start = 350 + gap_dur + 100, end = 1000)
+            axs[i].scatter(np.arange(len(distance)), distance, color = 'lightblue', alpha = 0.8)
+            
+            smoothed_x, smoothe_y = smooth_scatter_peak(np.arange(len(distance)), distance)
+            axs[i].plot(smoothed_x, smoothe_y, linewidth = 4, color = 'black')
+            
+            time = np.argsort(smoothe_y)[::-1][0]
+            axs[i].scatter([],[],color = 'red', label = 'Peak Time: ' + str(time) + 'ms')
+            axs[i].axvline(x=time, linestyle = '--', color = 'red')
+            
             axs[i].legend(loc = 'upper right', fontsize = 20)
-            axs[i].axhline(y=0, linestyle = '--', color = 'red')
-            axs[i].set_ylim((-0.1, 2.8))
-            axs[i].set_xticks(np.arange(0, 600, 100), ['0', '100', '200', '300', '400', '500'], fontsize = 20)
-            axs[i].set_yticks(np.arange(0,2.6, 0.5), ['0', '0.5','1.0','1.5','2.0','2.5'], fontsize = 20)
+            axs[i].axhline(y=0, linestyle = '--', color = 'grey')
+            
+            axs[i].set_xlim((-50, 260))
+            #axs[i].set_ylim((-0.1, 2.55))
+            axs[i].set_xticks(np.arange(-50, 255, 50), ['-50', '0', '50', '100', '150', '200', '250'], fontsize = 20)
+            #axs[i].set_yticks(np.arange(0, 2.6, 0.5), ['0', '0.5','1.0','1.5','2.0','2.5'], fontsize = 20)
             axs[i].set_xlabel('Time Since Post-Noise Off-Set (ms)', fontsize = 20)
-            axs[i].set_xlabel('Distance to Noise On-Set', fontsize = 20)
+            axs[i].set_ylabel('Distance to Noise On-Set', fontsize = 20)
             axs[i].set_title('Silence = 550 ms', fontsize = 24)
         plt.tight_layout()
         
@@ -999,21 +1066,31 @@ class PCA:
         subspaces_label = ['On-Resp Subspace', 'Off-Resp Subspace', 'Noise-Resp Subspace', 'Background Subspace']
         fig2, axs = plt.subplots(2, 2, figsize = (12, 12))
         axs = axs.flatten()
-        gap_dur = round(self.group.gaps[i]*1000+350)
+        gap_dur = round(self.group.gaps[0]*1000)
         for i in range(4):
             subspace = subspaces[i]
             self.group.pca.loading = subspace
             self.group.pca.score = subspace @ (self.group.pca.data.reshape(self.group.pca.data.shape[0], -1) )
             self.group.pca.Separate_Multiple_Gaps()
             
-            distance = []
-            for t in range(gap_dur + 100, 1000):
-                distance.append(calculate_distance(i, t))
-            time = np.argsort(distance)[::-1][0]
-            axs[i].scatter(np.arange(len(distance)), distance, color = 'darkblue')
-            axs[i].scatter(time,distance[time],color = 'red', label = 'Peak Time: ' + str(time) + 'ms')
+            pre_distance = calculate_distance(0, start = 300, end = 351)
+            axs[i].scatter(np.arange(-len(pre_distance),0,1), pre_distance, color = 'lightgreen', alpha = 0.7)
+            smoothed_x, smoothe_y = smooth_scatter(np.arange(-len(pre_distance),0,1), pre_distance)
+            axs[i].plot(smoothed_x, smoothe_y, linewidth = 4, color = 'grey')
+            
+            distance = calculate_distance(0, start = 350 + gap_dur + 100, end = 1000)
+            axs[i].scatter(np.arange(len(distance)), distance, color = 'lightblue', alpha = 0.8)
+            
+            smoothed_x, smoothe_y = smooth_scatter_peak(np.arange(len(distance)), distance)
+            axs[i].plot(smoothed_x, smoothe_y, linewidth = 4, color = 'black')
+            
+            time = np.argsort(smoothe_y)[::-1][0]
+            axs[i].scatter([],[],color = 'red', label = 'Peak Time: ' + str(time) + 'ms')
+            axs[i].axvline(x=time, linestyle = '--', color = 'red')
+            
             axs[i].legend(loc = 'upper right', fontsize = 20)
-            axs[i].axhline(y=0, linestyle = '--', color = 'red')
+            axs[i].axhline(y=0, linestyle = '--', color = 'grey')
+            
             axs[i].set_ylim((-0.1, 3.5))
             axs[i].set_xticks(np.arange(0, 600, 100), ['0', '100', '200', '300', '400', '500'], fontsize = 20)
             axs[i].set_yticks(np.arange(0,3.1, 0.5), ['0', '0.5','1.0','1.5','2.0','2.5','3.0'], fontsize = 20)
@@ -1026,7 +1103,7 @@ class PCA:
         return fig1, fig2
 
 
-class DynamicalSystem:
+class DynamicalSystem_Simple:
     def __init__(self, group, gap_idx):
         self.group = group 
         self.gap_idx = gap_idx 
@@ -1054,12 +1131,13 @@ class DynamicalSystem:
         
         self.opti_start, self.opti_end = 0, 1000
         self.lr = 0.005
+        self.opti_corre = []
         
     def Set_Gap_Dependent_Params(self):
         self.gap_dur = round(self.group.gaps[self.gap_idx]*1000)
         self.Get_PCs()
         
-        self.OnS = np.array(self.group.gaps_label[self.gap_idx])
+        self.OnS = np.array(self.group.gaps_label[self.gap_idx]) * 1
         self.OffS = 1 - self.OnS
         
     def Flip(self,PC):
@@ -1068,6 +1146,14 @@ class DynamicalSystem:
         else: return False
         
     def Get_PCs(self):
+        '''
+        offset_pca= neuron.PCA(self.group.pop_response_stand[:, 0, 450:550], multiple_gaps=False)
+        subspace = offset_pca.loading
+        self.group.pca.loading = subspace
+        self.group.pca.score = subspace @ (self.group.pca.data.reshape(self.group.pca.data.shape[0], -1) )
+        self.group.pca.Separate_Multiple_Gaps()
+        '''
+        
         PC, PCs = [0,1,2],[]
         for j in range(len(PC)):
             scores = self.group.pca.score_per_gap[PC[j]]
@@ -1076,9 +1162,9 @@ class DynamicalSystem:
             score_per_gap = (score_per_gap-np.mean(score_per_gap[:100]))/np.max(abs(score_per_gap))
             if self.Flip(score_per_gap): score_per_gap = score_per_gap * (-1)
             PCs.append(score_per_gap)
-        self.PCs = PCs
+        self.PCs = np.array(PCs)
 
-    def Init_Params(self, random = True):
+    def Init_Params(self, random = False):
         
         if random:
             self.Nt = np.random.uniform(0, 1, size=(3, 1))
@@ -1160,7 +1246,6 @@ class DynamicalSystem:
 
         # Store the maximum correlation and max_N during training
         max_corre = -1
-        corres = []
 
         # Optimization loop
         total_steps = num_iterations * (len(self.times))
@@ -1204,10 +1289,10 @@ class DynamicalSystem:
                 # Keep track of the maximum correlation and best N
                 if average_corre.item() > max_corre:
                     max_corre = average_corre.item()
-                    corres.append(max_corre)
+                    self.opti_corre.append([iter, max_corre])
 
                 # Check for convergence (if correlation change is very small)
-                if len(corres) > 3 and abs(corres[-1] - corres[-2]) < 0.0005:
+                if len(self.opti_corre) > 3 and abs(self.opti_corre[-1][1] - self.opti_corre[-2][1]) < 5e-4:
                     print("Convergence reached.")
                     break
             
@@ -1217,7 +1302,8 @@ class DynamicalSystem:
         self.Nt = Nt.detach().numpy()
         self.tau_on = tau_on.detach().numpy()*100
         self.tau_off = tau_off.detach().numpy()*50
-   
+        self.opti_corre = np.array(self.opti_corre)
+
     def Run(self): 
         def exponential_decay_np(start, t, tau):
             return np.exp(-(t-start) / tau)
@@ -1249,120 +1335,574 @@ class DynamicalSystem:
         
         self.x, self.y, self.z = self.N[0], self.N[1], self.N[2]
     
+class DynamicalSystem_Complex:
+    def __init__(self, group, gap_idx):
+        self.group = group 
+        self.gap_idx = gap_idx 
+        
+        self.gap_dur = None
+        self.PCs = None
+        self.OnS = None
+        self.OffS = None
+
+        self.times = np.arange(1000)
+        self.dt = 1 
+        
+        self.Nt = None
+        self.W = None 
+        self.OnRe = None 
+        self.OffRe = None 
+        
+        self.S_on, self.S_off = 50, 1
+        self.tau_I_on, self.tau_I_on_coef = 8.4, 1
+        self.tau_A_on, self.tau_A_on_coef = 14.6, 1
+        self.tau_I_off, self.tau_I_off_coef = 0.2, 1
+        self.tau_A_off, self.tau_A_off_coef = 10.5, 1
+        self.delay_on, self.delay_on_coef = 5, 1
+        self.delay_off, self.delay_off_coef = 10, 1
+        
+        self.Set_Gap_Dependent_Params()
+        self.Init_Params()
+        self.x, self.y, self.z = None, None, None
+        self.N = np.zeros((3, len(self.times)))
+        
+        self.opti_start, self.opti_end = 0, 1000
+        self.lr = 0.005
+        self.opti_corre = []
+        
+    def Set_Gap_Dependent_Params(self):
+        self.gap_dur = round(self.group.gaps[self.gap_idx]*1000)
+        self.Get_PCs()
+        
+        self.OnS = self.Get_Input(self.gap_idx, self.tau_I_on * self.tau_I_on_coef, self.tau_A_on* self.tau_A_on_coef, round(self.delay_on * self.delay_on_coef), invert = False)
+        self.OffS = self.Get_Input(self.gap_idx, self.tau_I_off * self.tau_I_off_coef, self.tau_A_off * self.tau_A_off_coef, round(self.delay_off * self.delay_off_coef), invert = True)
+        
+    def Flip(self,PC):
+        max_idx = np.argsort(abs(PC)[100:125])[::-1]
+        if PC[100:125][max_idx[0]] < 0: return True 
+        else: return False
+        
+    def Get_PCs(self):
+        PC, PCs = [0,1,2],[]
+        for j in range(len(PC)):
+            scores = self.group.pca.score_per_gap[PC[j]]
+            
+            score_per_gap = scores[self.gap_idx]
+            score_per_gap = (score_per_gap-np.mean(score_per_gap[:100]))/np.max(abs(score_per_gap))
+            if self.Flip(score_per_gap): score_per_gap = score_per_gap * (-1)
+            PCs.append(score_per_gap)
+        self.PCs = np.array(PCs)
+        
+    def Get_Input(self, gap_idx, tau_I, tau_A, delay, invert = False):
+        def Get_w(N, tau):
+            w = [np.exp(-i/tau) for i in range(N)]
+            w = w/np.sum(w)
+            return np.array(w)
+
+        def Get_rI(S, tau_I):
+            rI = np.zeros(len(S))
+            N = round(5*tau_I)
+            wI = Get_w(N, tau_I)
+            for t in range(0, len(S)):
+                if t < N:
+                    rI[t] = np.sum(wI[:t][::-1] * S[:t])
+                else:
+                    rI[t] = np.sum(wI[::-1] * S[t-N:t])
+            return rI
+
+        def Get_rA(S, rI, tau_A):
+            rA = np.zeros(len(S))
+            M = round(5*tau_A)
+            wA = Get_w(M, tau_A)
+            for t in range(0, len(S)):
+                if t < M:
+                    rA[t] = 1 / (1 + np.sum(wA[:t][::-1] * rI[:t]))
+                else:
+                    rA[t] = 1 / (1 + np.sum(wA[::-1] * rI[t-M:t]))
+            return rA
+
+        def Get_rIA(S, tau_I, tau_A):
+            rI = Get_rI(S, tau_I)
+            rA = Get_rA(S, rI, tau_A)
+            rIA = np.zeros(len(S))
+            for t in range(0, len(S)):
+                rIA[t] = rI[t] * rA[t]
+            return rI, rA, rIA
+        
+        gap_dur = round(self.group.gaps[gap_idx]*1000)
+        S = np.zeros(1000) + self.S_off
+        for t in range(100 + delay, 100 + 250+ delay): S[t] = self.S_on 
+        for t in range(350+gap_dur + delay, 350+gap_dur+100+ delay): S[t] = self.S_on
+        rI, rA, rIA = Get_rIA(S, tau_I, tau_A)
+        if not invert:
+            rIA -= np.mean(rIA[50:100])
+        if invert: 
+            rIA *= -1
+            rIA -= np.mean(rIA[300:350])
+        for i in range(len(rIA)): 
+            if rIA[i] < 0: rIA[i] = 0
+        for i in range(100+delay+1): rIA[i] = 0
+        return rIA
+    
+    def Get_Input_torch(self, gap_idx, tau_I, tau_A, delay, invert=False):
+        def Get_w_torch(N, tau):
+            # Create exponential decay weights using torch
+            N = int(N)  # Convert to int for range
+            indices = torch.arange(N, dtype=torch.float32)
+            w = torch.exp(-indices/tau)
+            w = w/torch.sum(w)  # Normalize
+            return w
+
+        def Get_rI_torch(S, tau_I):
+            N = int(5*tau_I)  # Convert to int for indexing
+            wI = Get_w_torch(N, tau_I)
+            rI = torch.zeros_like(S)
+            
+            # Compute convolution for each time step
+            for t in range(len(S)):
+                if t < N:
+                    if t > 0:  # Avoid empty slice
+                        rI[t] = torch.sum(wI[:t].flip(0) * S[:t])
+                else:
+                    rI[t] = torch.sum(wI.flip(0) * S[t-N:t])
+            return rI
+
+        def Get_rA_torch(S, rI, tau_A):
+            M = int(5*tau_A)  # Convert to int for indexing
+            wA = Get_w_torch(M, tau_A)
+            rA = torch.zeros_like(S)
+            
+            # Compute adaptive component
+            for t in range(len(S)):
+                if t < M:
+                    if t > 0:  # Avoid empty slice
+                        weighted_sum = torch.sum(wA[:t].flip(0) * rI[:t])
+                        rA[t] = 1 / (1 + weighted_sum)
+                else:
+                    weighted_sum = torch.sum(wA.flip(0) * rI[t-M:t])
+                    rA[t] = 1 / (1 + weighted_sum)
+            return rA
+
+        def Get_rIA_torch(S, tau_I, tau_A):
+            rI = Get_rI_torch(S, tau_I)
+            rA = Get_rA_torch(S, rI, tau_A)
+            rIA = rI * rA
+            return rI, rA, rIA
+
+        # Convert delay to int for indexing
+        delay = int(delay.item())
+        
+        # Create input signal S
+        S = torch.zeros(1000, dtype=torch.float32)
+        S.fill_(self.S_off)  # S_off = 1
+        
+        # Set S_on periods
+        S[100 + delay:100 + 250 + delay] = self.S_on 
+        gap_dur = int(round(self.group.gaps[gap_idx]*1000))
+        S[350 + gap_dur + delay:350 + gap_dur + 100 + delay] = self.S_on
+        
+        # Get response components
+        rI, rA, rIA = Get_rIA_torch(S, tau_I, tau_A)
+        
+        # Process rIA based on invert flag
+        if not invert:
+            baseline = torch.mean(rIA[50:100])
+            rIA = rIA - baseline
+        else:
+            rIA = -rIA
+            baseline = torch.mean(rIA[300:350])
+            rIA = rIA - baseline
+        
+        # Apply non-negative constraint
+        rIA = torch.clamp(rIA, min=0)
+        
+        # Zero out initial period
+        rIA[:100+delay+1] = 0
+        
+        return rIA
+    
+    def Init_Params(self, random = False):
+        
+        if random:
+            self.Nt = np.random.uniform(0, 1, size=(3, 1))
+            self.W = np.random.uniform(-1, 1, size=(3, 3))
+            self.OnRe = np.random.uniform(-1, 1, size=(3, 1))
+            self.OffRe = np.random.uniform(-1, 1, size=(3, 1))
+            
+        else:
+            ## Timescale
+            self.Nt = np.array(
+                [
+                    [0.04],
+                    [0.39],
+                    [0.24]
+                ]
+            ) 
+            ## Connections
+            self.W = np.array(
+                [
+                    [-0.05, 0.9, 0.23],
+                    [-0.06, -0.23, 0.02],
+                    [-0.09, -0.4, -0.04]
+                ]
+            ) 
+
+            ## Response to Stimuli
+            self.OnRe = np.array(
+                [
+                    [0.4],
+                    [1.5],
+                    [2.6]
+                ]
+            ) 
+            self.OffRe = np.array(
+                [
+                    [-0.2],
+                    [0.08],
+                    [0.54]
+                ]
+            ) 
+        
+    def Optimize_Params(self):
+        def pearson_corr(x, y):
+            x_mean = torch.mean(x)
+            y_mean = torch.mean(y)
+            x_centered = x - x_mean
+            y_centered = y - y_mean
+            covariance = torch.sum(x_centered * y_centered)
+            x_std = torch.sqrt(torch.sum(x_centered ** 2))
+            y_std = torch.sqrt(torch.sum(y_centered ** 2))
+            correlation = covariance / (x_std * y_std)
+            return correlation
+        
+        # Initialize the parameters as torch tensors with requires_grad=True
+        W = torch.tensor(self.W, dtype=torch.float32, requires_grad=True)
+        OnRe = torch.tensor(self.OnRe, dtype=torch.float32, requires_grad=True)
+        OffRe = torch.tensor(self.OffRe, dtype=torch.float32, requires_grad=True)
+        Nt = torch.tensor(self.Nt, dtype=torch.float32, requires_grad=True)
+        
+        ## Parameters for OnS and OffS computation
+        tau_I_on_coef = torch.tensor(self.tau_I_on_coef, dtype=torch.float32, requires_grad=True)
+        tau_A_on_coef = torch.tensor(self.tau_A_on_coef, dtype=torch.float32, requires_grad=True)
+        tau_I_off_coef = torch.tensor(self.tau_I_off_coef, dtype=torch.float32, requires_grad=True)
+        tau_A_off_coef = torch.tensor(self.tau_A_off_coef, dtype=torch.float32, requires_grad=True)
+        delay_on_coef = torch.tensor(self.delay_on_coef, dtype=torch.float32, requires_grad=True)
+        delay_off_coef = torch.tensor(self.delay_off_coef, dtype=torch.float32, requires_grad=True)
+
+
+        # Define the optimizer
+        optimizer = torch.optim.Adam([
+            W, OnRe, OffRe, Nt,
+            tau_I_on_coef, tau_A_on_coef, tau_I_off_coef, tau_A_off_coef, delay_on_coef, delay_off_coef
+        ], lr=self.lr)
+
+        # Number of iterations
+        num_iterations = 1000
+
+        # Store the maximum correlation and max_N during training
+        max_corre = -1
+
+        # Optimization loop
+        total_steps = num_iterations * (len(self.times))
+        with tqdm(total=total_steps, desc="Training", unit="step") as pbar:
+            for iter in range(num_iterations):
+                optimizer.zero_grad()  # Zero the gradients for each iteration
+                
+                OnS = self.Get_Input_torch(
+                    self.gap_idx, 
+                    self.tau_I_on * tau_I_on_coef, 
+                    self.tau_A_on * tau_A_on_coef, 
+                    self.delay_on * delay_on_coef, 
+                    invert=False
+                )
+                OffS = self.Get_Input_torch(
+                    self.gap_idx, 
+                    self.tau_I_off * tau_I_off_coef, 
+                    self.tau_A_off * tau_A_off_coef, 
+                    self.delay_off * delay_off_coef,
+                    invert=True
+                )
+
+                # Initialize N with zeros (as a tensor)
+                N = torch.zeros((3, len(self.times)))
+                
+                # Calculate N over time steps
+                for t in range(1, len(self.times)):
+                    noise = torch.normal(0, np.sqrt(0.001), size=(3, 1))  # Add Gaussian noise
+                    N[:, [t]] = N[:, [t-1]] + (W @ N[:, [t-1]] + OnRe * OnS[t-1] + OffRe * OffS[t-1]) * Nt + noise
+                    pbar.update(1)
+                    
+                # Calculate correlation with PCs (row-wise) using differentiable correlation in PyTorch
+                corre = []
+                for i in range(3): corre.append(pearson_corr(N[i][self.opti_start:self.opti_end], 
+                                                             torch.tensor(self.PCs[i][self.opti_start:self.opti_end], 
+                                                                          dtype=torch.float32)))
+                average_corre = torch.mean(torch.stack(corre))
+
+                # Convert to a loss (we want to maximize correlation, so minimize -average_corre)
+                loss = -average_corre
+
+                # Backpropagate
+                loss.backward()
+                optimizer.step()  # Update parameters
+
+                # Keep track of the maximum correlation and best N
+                if average_corre.item() > max_corre:
+                    max_corre = average_corre.item()
+                    self.opti_corre.append([iter, max_corre])
+
+                # Check for convergence (if correlation change is very small)
+                if len(self.opti_corre) > 3 and abs(self.opti_corre[-1][1] - self.opti_corre[-2][1]) < 5e-5:
+                    print("Convergence reached.")
+                    break
+            
+        self.W = W.detach().numpy()
+        self.OnRe = OnRe.detach().numpy()
+        self.OffRe = OffRe.detach().numpy()
+        self.Nt = Nt.detach().numpy()
+        self.tau_I_on_coef = tau_I_on_coef.detach().numpy()
+        self.tau_A_on_coef = tau_A_on_coef.detach().numpy()
+        self.tau_I_off_coef = tau_I_off_coef.detach().numpy()
+        self.tau_A_off_coef = tau_A_off_coef.detach().numpy()
+        self.delay_on_coef = delay_on_coef.detach().numpy()
+        self.delay_off_coef = delay_off_coef.detach().numpy()
+        self.opti_corre = np.array(self.opti_corre)
+        
+        print("\n")
+        print('----------------Iter ' + str(iter) + '----------------')
+        print('Integration for On-response = ' + str(self.tau_I_on * self.tau_I_on_coef) + 'ms')
+        print('Adaptation for On-response = ' + str(self.tau_A_on * self.tau_A_on_coef) + 'ms')
+        print('Delay for On-response = ' + str(self.delay_on * self.delay_on_coef) + 'ms')
+        print("\n")
+        print('Integration for Off-response = ' + str(self.tau_I_off * self.tau_I_off_coef) + 'ms')
+        print('Adaptation for Off-response = ' + str(self.tau_A_off * self.tau_A_off_coef) + 'ms')
+        print('Delay for Off-response = ' + str(self.delay_off * self.delay_off_coef) + 'ms')
+
+    def Run(self): 
+        self.OnS = self.Get_Input(self.gap_idx, self.tau_I_on * self.tau_I_on_coef, self.tau_A_on* self.tau_A_on_coef, round(self.delay_on * self.delay_on_coef), invert = False)
+        self.OffS = self.Get_Input(self.gap_idx, self.tau_I_off * self.tau_I_off_coef, self.tau_A_off * self.tau_A_off_coef, round(self.delay_off * self.delay_off_coef), invert = True)
+        
+        self.N = np.zeros((3, len(self.times)))
+        for t in range(1,len(self.times)):
+            noise = np.random.normal(0, np.sqrt(0.001), (3, 1))
+            self.N[:,[t]] = self.N[:,[t-1]] +(self.W@self.N[:,[t-1]] + self.OnRe*self.OnS[t-1] + self.OffRe*self.OffS[t-1])*self.Nt + noise
+
+        # Normalize
+        for i in range(3):
+            self.N[i] = (self.N[i]-np.mean(self.N[i][:100]))
+            self.N[i] = self.N[i] / np.max(abs(self.N[i]))
+            if self.Flip(self.N[i]): self.N[i] *= -1
+        
+        self.x, self.y, self.z = self.N[0], self.N[1], self.N[2]
+        
+
+class Model:
+    def __init__(self, group, gap_idx, input = 'simple'):
+        self.group = group  
+        self.gap_idx = gap_idx 
+        self.gap_dur = round(self.group.gaps[self.gap_idx]*1000)
+        
+        self.input = input
+        self.model = self.Get_Model()
+        self.N, self.PCs = None, None
+        self.x, self.y, self.z = None, None, None
+        self.Input_On, self.Input_Off = None, None
+        
+    def Get_Model(self):
+        if self.input == 'simple': return DynamicalSystem_Simple(self.group, self.gap_idx)
+        if self.input == 'complex': return DynamicalSystem_Complex(self.group, self.gap_idx)
+        
+    
     def Draw(self):
-        colors = ['black', 'red', 'blue']
-        labels = ['x', 'y', 'z']
-        fig1, axs = plt.subplots(3, 1, sharex=True, figsize=(17, 8))
-        axs[0].plot(np.arange(0, 1.0, 1/len(self.times)), self.x, color=colors[0])
-        axs[0].plot(np.arange(0, 1.0, 1/len(self.times)), self.PCs[0], color=colors[0], alpha = 0.5)
-        axs[1].plot(np.arange(0, 1.0, 1/len(self.times)), self.y, color=colors[1])
-        axs[1].plot(np.arange(0, 1.0, 1/len(self.times)), self.PCs[1], color=colors[1], alpha = 0.5)
-        axs[2].plot(np.arange(0, 1.0, 1/len(self.times)), self.z, color=colors[2])
-        axs[2].plot(np.arange(0, 1.0, 1/len(self.times)), self.PCs[2], color=colors[2], alpha = 0.5)
-        
-        axs[1].plot([],[], color = 'black', label = 'tau_on: ' + str(np.round(self.tau_on,2)))
-        axs[1].plot([],[], color = 'black', label = 'tau_off: ' + str(np.round(self.tau_off,2)))
-        axs[1].legend(loc = 'upper right', fontsize = 20)
-        
-        for j in range(3):
-            axs[j].axhline(y=0, color = 'grey', linestyle = ':')
-            axs[j].axvline(x=0.1, color = 'grey', linestyle = ':')
-            axs[j].axvline(x=0.35, color = 'grey', linestyle = ':')
-            axs[j].axvline(x=(350+self.gap_dur)/1000, color = 'grey', linestyle = ':')
-            axs[j].axvline(x=(450+self.gap_dur)/1000, color = 'grey', linestyle = ':')
-
-            axs[j].set_ylabel(labels[j], fontsize=24)
-            axs[j].set_xticks([0, 0.2, 0.4, 0.6, 0.8], labels=[0, 200, 400, 600, 800], fontsize=16)
-            axs[j].set_yticks([-1,0,1], labels=[-1,0,1], fontsize=16)
-            axs[j].set_ylim((-1, 1))
-        axs[2].set_xlabel('Time (ms)', fontsize=20)
-        axs[0].set_title('Gap Duration: ' + str(self.gap_dur) + 'ms', fontsize = 24)
-        plt.tight_layout()
-
-        def style_3d_ax(ax):
-            ax.set_xticks([])
-            ax.set_yticks([])
-            ax.set_zticks([])
-            ax.xaxis.pane.fill = True
-            ax.yaxis.pane.fill = True
-            ax.zaxis.pane.fill = True
-            ax.xaxis.pane.set_edgecolor('w')
-            ax.yaxis.pane.set_edgecolor('w')
-            ax.zaxis.pane.set_edgecolor('w')
-            ax.set_xlabel('X', fontsize = 14)
-            ax.set_ylabel('Y', fontsize = 14)
-            ax.set_zlabel('Z', fontsize = 14)
+        def Draw_Trace_2d():
+            colors = ['black', 'red', 'blue']
+            labels = ['x', 'y', 'z']
+            fig1, axs = plt.subplots(4, 1, sharex=True, figsize=(17, 8))
+            axs[0].plot(np.arange(0, 1.0, 1/len(self.model.times)), self.x, color=colors[0])
+            axs[0].plot(np.arange(0, 1.0, 1/len(self.model.times)), self.PCs[0], color=colors[0], alpha = 0.5)
+            axs[1].plot(np.arange(0, 1.0, 1/len(self.model.times)), self.y, color=colors[1])
+            axs[1].plot(np.arange(0, 1.0, 1/len(self.model.times)), self.PCs[1], color=colors[1], alpha = 0.5)
+            axs[2].plot(np.arange(0, 1.0, 1/len(self.model.times)), self.z, color=colors[2])
+            axs[2].plot(np.arange(0, 1.0, 1/len(self.model.times)), self.PCs[2], color=colors[2], alpha = 0.5)
+            axs[3].plot(np.arange(0, 1.0, 1/len(self.model.times)), self.Input_On, color='darkgreen')
+            axs[3].plot(np.arange(0, 1.0, 1/len(self.model.times)), self.Input_Off, color='lightgreen')
+            #axs[3].legend(loc = 'upper right', fontsize = 20)
             
-        
-        fig2, axs = plt.subplots(1, 2, figsize=(24, 8), subplot_kw={'projection': '3d'})    
-        x = gaussian_filter1d(self.x, sigma=sigma)
-        y = gaussian_filter1d(self.y, sigma=sigma)
-        z = gaussian_filter1d(self.z, sigma=sigma)
-        
-        PC1 = gaussian_filter1d(self.PCs[0], sigma=sigma)
-        PC2 = gaussian_filter1d(self.PCs[1], sigma=sigma)
-        PC3 = gaussian_filter1d(self.PCs[2], sigma=sigma)
+            for j in range(4):
+                axs[j].axhline(y=0, color = 'grey', linestyle = ':')
+                axs[j].axvline(x=0.1, color = 'grey', linestyle = ':')
+                axs[j].axvline(x=0.35, color = 'grey', linestyle = ':')
+                axs[j].axvline(x=(350+self.gap_dur)/1000, color = 'grey', linestyle = ':')
+                axs[j].axvline(x=(450+self.gap_dur)/1000, color = 'grey', linestyle = ':')
+                axs[j].set_xticks([0, 0.2, 0.4, 0.6, 0.8], labels=[0, 200, 400, 600, 800], fontsize=16)
+                if j <3:
+                    axs[j].set_ylabel(labels[j], fontsize=24)
+                    axs[j].set_yticks([-1,0,1], labels=[-1,0,1], fontsize=16)
+                    axs[j].set_ylim((-1, 1))
+            axs[3].set_xlabel('Time (ms)', fontsize=20)
+            axs[0].set_title('Gap Duration: ' + str(self.gap_dur) + 'ms', fontsize = 24)
+            plt.tight_layout()
+            return fig1
 
-        if self.Flip(x): x *= -1
-        if self.Flip(y): y *= -1
-        if self.Flip(z): z *= -1
-
-        gap_dur = self.gap_dur + 350
-        linecolors = ['black', 'green', 'black', 'lightgreen', 'black']
-        linestyle = [':', '--', '-', '--', ':']
-        labels = ['pre-gap', 'gap', 'post-gap', 'silence']
-        starts = [0, 100, 350, gap_dur, gap_dur + 100]
-        ends = [100, 350, gap_dur, gap_dur+100, 1000]
-
-        for k in range(5):
-            if k == 0:
-                axs[0].plot(x[starts[k]:ends[k]], y[starts[k]:ends[k]], z[starts[k]:ends[k]], 
-                                            ls=linestyle[k], c=linecolors[k], linewidth = 3)
-                axs[1].plot(PC1[starts[k]:ends[k]], PC2[starts[k]:ends[k]], PC3[starts[k]:ends[k]], 
-                                            ls=linestyle[k], c=linecolors[k], linewidth = 3)
-            else:
-                axs[0].plot(x[starts[k]:ends[k]], y[starts[k]:ends[k]], z[starts[k]:ends[k]], 
-                                            ls=linestyle[k], c=linecolors[k], linewidth = 3, label = labels[k-1])
-                axs[1].plot(PC1[starts[k]:ends[k]], PC2[starts[k]:ends[k]], PC3[starts[k]:ends[k]], 
-                                            ls=linestyle[k], c=linecolors[k], linewidth = 3, label = labels[k-1])
-        
-
-        for i in range(2):
-            axs[i].legend(loc = 'upper center', fontsize = 14)
-            style_3d_ax(axs[i])
-            axs[i].set_xlim((-1, 1))
-            axs[i].set_ylim((-1, 1))
-            axs[i].set_zlim((-1, 1))
-        axs[0].set_title('Predicted', fontsize = 24)
-        axs[1].set_title('Original Data', fontsize = 24)
-        plt.tight_layout()    
-        
-        fig3, axs = plt.subplots(1, 1, figsize=(24, 8))
-        
-        def custom_fmt(val, i, j):
-            if j in [3, 5, 7] and val == 0:
-                return ''
-            return f'{val:.2f}'
+        def Draw_Trace_3d():
+            def style_3d_ax(ax):
+                ax.set_xticks([])
+                ax.set_yticks([])
+                ax.set_zticks([])
+                ax.xaxis.pane.fill = True
+                ax.yaxis.pane.fill = True
+                ax.zaxis.pane.fill = True
+                ax.xaxis.pane.set_edgecolor('w')
+                ax.yaxis.pane.set_edgecolor('w')
+                ax.zaxis.pane.set_edgecolor('w')
+                ax.set_xlabel('X', fontsize = 14)
+                ax.set_ylabel('Y', fontsize = 14)
+                ax.set_zlabel('Z', fontsize = 14)
+                
             
-        Empty_column = np.array([[0],[0],[0]]) 
-        Params = np.concatenate((self.W, Empty_column, self.OnRe, Empty_column, self.OffRe, Empty_column, self.Nt), axis = 1)
-        # Create the heatmap with custom formatting
-        annot_matrix = [[custom_fmt(val, i, j) for j, val in enumerate(row)] 
-                        for i, row in enumerate(Params)]
-        # Create the heatmap with larger annotation font size
-        sns.heatmap(Params, ax=axs, cmap='RdBu', vmin=-1, vmax=1, cbar=False, 
-                    annot=annot_matrix, fmt='', annot_kws={'size': 40})  # Increased annotation font size
-        axs.set_yticklabels(['X', 'Y', 'Z'], rotation=0, fontsize=30)  # Added fontsize parameter
-        xticks = axs.get_xticks()
-        xtick_labels = ['' for _ in range(len(xticks))]  # Initialize empty labels
-        xtick_labels[1] = 'Connection'  # x=1
-        xtick_labels[4] = 'OnRe'       # x=4
-        xtick_labels[6] = 'OffRe'      # x=6
-        xtick_labels[8] = 'TimeScale'  # x=8
-        axs.set_xticklabels(xtick_labels, fontsize=30)  # Added fontsize parameter
+            fig2, axs = plt.subplots(1, 2, figsize=(24, 8), subplot_kw={'projection': '3d'})    
+            x = gaussian_filter1d(self.x, sigma=sigma)
+            y = gaussian_filter1d(self.y, sigma=sigma)
+            z = gaussian_filter1d(self.z, sigma=sigma)
+            
+            PC1 = gaussian_filter1d(self.PCs[0], sigma=sigma)
+            PC2 = gaussian_filter1d(self.PCs[1], sigma=sigma)
+            PC3 = gaussian_filter1d(self.PCs[2], sigma=sigma)
+
+            if self.model.Flip(x): x *= -1
+            if self.model.Flip(y): y *= -1
+            if self.model.Flip(z): z *= -1
+
+            gap_dur = self.gap_dur + 350
+            linecolors = ['black', 'green', 'black', 'lightgreen', 'black']
+            linestyle = [':', '--', '-', '--', ':']
+            labels = ['pre-gap', 'gap', 'post-gap', 'silence']
+            starts = [0, 100, 350, gap_dur, gap_dur + 100]
+            ends = [100, 350, gap_dur, gap_dur+100, 1000]
+
+            for k in range(5):
+                if k == 0:
+                    axs[0].plot(x[starts[k]:ends[k]], y[starts[k]:ends[k]], z[starts[k]:ends[k]], 
+                                                ls=linestyle[k], c=linecolors[k], linewidth = 3)
+                    axs[1].plot(PC1[starts[k]:ends[k]], PC2[starts[k]:ends[k]], PC3[starts[k]:ends[k]], 
+                                                ls=linestyle[k], c=linecolors[k], linewidth = 3)
+                else:
+                    axs[0].plot(x[starts[k]:ends[k]], y[starts[k]:ends[k]], z[starts[k]:ends[k]], 
+                                                ls=linestyle[k], c=linecolors[k], linewidth = 3, label = labels[k-1])
+                    axs[1].plot(PC1[starts[k]:ends[k]], PC2[starts[k]:ends[k]], PC3[starts[k]:ends[k]], 
+                                                ls=linestyle[k], c=linecolors[k], linewidth = 3, label = labels[k-1])
+            
+
+            for i in range(2):
+                axs[i].legend(loc = 'upper center', fontsize = 14)
+                style_3d_ax(axs[i])
+                axs[i].set_xlim((-1, 1))
+                axs[i].set_ylim((-1, 1))
+                axs[i].set_zlim((-1, 1))
+            axs[0].set_title('Predicted', fontsize = 24)
+            axs[1].set_title('Original Data', fontsize = 24)
+            plt.tight_layout()    
+            return fig2
         
-        return fig1, fig2, fig3
+        def Draw_Parameters():
+            fig3, axs = plt.subplots(1, 1, figsize=(24, 8))
+            
+            def custom_fmt(val, i, j):
+                if j in [3, 5, 7] and val == 0:
+                    return ''
+                return f'{val:.2f}'
+                
+            Empty_column = np.array([[0],[0],[0]]) 
+            Params = np.concatenate((self.model.W, Empty_column, self.model.OnRe, Empty_column, self.model.OffRe, Empty_column, self.model.Nt), axis = 1)
+            # Create the heatmap with custom formatting
+            annot_matrix = [[custom_fmt(val, i, j) for j, val in enumerate(row)] 
+                            for i, row in enumerate(Params)]
+            # Create the heatmap with larger annotation font size
+            sns.heatmap(Params, ax=axs, cmap='RdBu', vmin=-1, vmax=1, cbar=False, 
+                        annot=annot_matrix, fmt='', annot_kws={'size': 40})  # Increased annotation font size
+            axs.set_yticklabels(['X', 'Y', 'Z'], rotation=0, fontsize=30)  # Added fontsize parameter
+            xticks = axs.get_xticks()
+            xtick_labels = ['' for _ in range(len(xticks))]  # Initialize empty labels
+            xtick_labels[1] = 'Connection'  # x=1
+            xtick_labels[4] = 'OnRe'       # x=4
+            xtick_labels[6] = 'OffRe'      # x=6
+            xtick_labels[8] = 'TimeScale'  # x=8
+            axs.set_xticklabels(xtick_labels, fontsize=30)  # Added fontsize parameter
+            
+            return fig3
         
+        def Draw_Corre_with_Iter():
+            fig4, axs = plt.subplots(1,1,figsize = (8,6))
+            axs.plot(self.model.opti_corre[:,0], self.model.opti_corre[:,1])
+            axs.set_xlabel('Iter')
+            axs.set_ylabel('Correlation Coefficient')
+            plt.tight_layout()
+            return fig4
+        
+        def Draw_Gap_Duration_Recognition():
+            def calculate_distance(X, start, end):
+                origin = np.mean(X[:,50:100], axis = 1)
+                distance = []
+                for t in range(start, end): 
+                    distance.append(np.sqrt(np.sum((origin - X[:, t]) ** 2)))
+                return np.array(distance)
+
+            fig5, axs = plt.subplots(2, 5, figsize = (30, 12))
+            axs = axs.flatten()
+            for i in range(10):
+                gap_dur = round(self.group.gaps[i]*1000)
+                gap_start, gap_end = 350, 350 + gap_dur 
+                if i == 0: gap_start, gap_end = 350 + gap_dur + 100, 1000
+                
+                self.model.gap_idx = i
+                self.model.Set_Gap_Dependent_Params()
+                self.model.Run()
+                
+                self.N, self.PCs = self.model.N, self.model.PCs 
+                for j in range(3):
+                    if self.model.Flip(self.N[j]): self.N[j] *= -1
+                
+                pre_distance = calculate_distance(self.N, start = 300, end = 351)
+                axs[i].scatter(np.arange(-len(pre_distance),0,1), pre_distance, color = 'darkgreen')   
+                distance = calculate_distance(self.N, start = gap_start, end = gap_end)
+                axs[i].scatter(np.arange(len(distance)), distance, color = 'darkblue')
+                
+                pre_distance_true = calculate_distance(self.PCs, start = 300, end = 351)
+                axs[i].scatter(np.arange(-len(pre_distance_true),0,1), pre_distance_true, color = 'green', alpha = 0.5)   
+                distance_true = calculate_distance(self.PCs, start = gap_start, end = gap_end)
+                axs[i].scatter(np.arange(len(distance_true)), distance_true, color = 'blue', alpha = 0.5)
+
+                time = np.argsort(distance)[::-1][0]
+                axs[i].scatter([],[],color = 'red', label = 'Peak Time: ' + str(time) + 'ms')
+                axs[i].axvline(x=time, linestyle = '--', color = 'red')
+                
+                axs[i].legend(loc = 'upper right', fontsize = 20)
+                axs[i].axhline(y=0, linestyle = '--', color = 'grey')
+                        
+                axs[i].set_xlim((-50, 260))
+                axs[i].set_ylim((-0.01, 1))
+                axs[i].set_xticks(np.arange(-50, 255, 50), ['-50', '0', '50', '100', '150', '200', '250'], fontsize = 20)
+                axs[i].set_yticks(np.arange(0, 1.1, 0.2), ['0', '0.2','0.4','0.6','0.8','1.0'], fontsize = 20)
+                axs[i].set_xlabel('Time Since Gap Start (ms)', fontsize = 20)
+                axs[i].set_ylabel('Distance to Noise On-Set', fontsize = 20)
+                axs[i].set_title('Gap = ' + str(gap_dur) + 'ms', fontsize = 24)
+            axs[0].set_xlabel('Time Since Post-Noise Off-Set (ms)', fontsize = 20)
+            axs[0].set_title('Silence = 550 ms', fontsize = 24)
+            plt.tight_layout()
+            return fig5
+        
+        self.N, self.PCs = self.model.N, self.model.PCs 
+        self.x, self.y, self.z = self.N[0], self.N[1], self.N[2]
+        if self.input == 'simple': self.Input_On, self.Input_Off = self.model.OnS_D, self.model.OffS_D 
+        if self.input == 'complex': self.Input_On, self.Input_Off = self.model.OnS, self.model.OffS
+        
+        fig1 = Draw_Trace_2d() 
+        fig2 = Draw_Trace_3d()
+        fig3 = Draw_Parameters() 
+        fig4 = Draw_Corre_with_Iter()
+        fig5 = Draw_Gap_Duration_Recognition()
+        
+        return fig1, fig2, fig3, fig4, fig5
 
 class Summary:
     def __init__(self, groups):

@@ -324,7 +324,7 @@ class Recording:
         meta_psth = np.concatenate((meta_psth,
                                     self.response['sig_psth'][:,:,:,:].mean(axis=2)),
                                     axis=0)
-        Calculate_Onset_Offset(meta_psth[2:][:,-1,:])
+        Calculate_Onset_Offset(meta_psth[2:][:,0,:])
         return meta_psth[2:]
             
     def Get_Pop_Response_Standardized(self):

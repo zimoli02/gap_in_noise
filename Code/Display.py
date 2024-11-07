@@ -142,14 +142,17 @@ def Display_Group(response_per_gap, pc_corre, pca_score, trajectory_3d, travel_d
                 fig2.savefig(file_path_sub + 'OnOff/Noise_Return_Silence_Diff_Subspace.png')
                 
             if model:
-                Model = result.DynamicalSystem(Group, gap_idx = 8)
-                Model.opti_start, Model.opti_end = 0, 350 + Model.gap_dur
-                Model.Optimize_Params()
-                Model.Run()
-                fig1, fig2, fig3 = Model.Draw()
-                fig1.savefig(file_path_sub+'Model/Trajectory.png')
-                fig2.savefig(file_path_sub+'Model/Trajectory_3d.png')
-                fig3.savefig(file_path_sub+'Model/Params.png')
+                Input = 'simple'
+                Model = result.Model(Group, gap_idx = 8, input = Input)
+                Model.model.opti_start, Model.model.opti_end = 0, 350 + Model.gap_dur
+                Model.model.Optimize_Params()
+                Model.model.Run()
+                fig1, fig2, fig3, fig4, fig5 = Model.Draw()
+                fig1.savefig(file_path_sub+'Model/' + Input + '/Trajectory.png')
+                fig2.savefig(file_path_sub+'Model/' + Input + '/Trajectory_3d.png')
+                fig3.savefig(file_path_sub+'Model/' + Input + '/Params.png')
+                fig4.savefig(file_path_sub+'Model/' + Input + '/Corre_with_Iter.png')
+                fig5.savefig(file_path_sub+'Model/' + Input + '/Gap_Duration_Recognition.png')
 
 def main():
     
@@ -158,17 +161,17 @@ def main():
     Display_Group(response_per_gap = False, 
                   pc_corre = False,
                   pca_score = False, 
-                  trajectory_3d = False, 
-                  travel_degree=False,
-                  trajectory_3d_by_event = False, 
-                  trajectory_event = False, 
-                  distance = False, 
-                  angle = False, 
+                  trajectory_3d = True, 
+                  travel_degree=True,
+                  trajectory_3d_by_event = True, 
+                  trajectory_event = True, 
+                  distance = True, 
+                  angle = True, 
                   principal_angle = False,
-                  onoff = False,
+                  onoff = True,
                   on_gap_dependent = False, 
                   return_background = False,
-                  model = True,
+                  model = False,
                   file_path = '../Images/')
     
     '''
