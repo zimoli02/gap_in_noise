@@ -63,14 +63,12 @@ def Display_Group_Summary(unit_type, pc_corre, pca_variance, distance, angle, tr
         GroupSummary.Plot_Travel_Distance_First_Step(PC = [0,1,3]).savefig(file_path + 'TravelSummary.png')
         
 def Display_Group(response_per_gap, pc_corre, pca_score, trajectory_3d, travel_degree, trajectory_3d_by_event, trajectory_event, distance, angle, principal_angle, onoff, on_gap_dependent, return_background, model, file_path):
-    Groups = []
     for geno_type in ['WT', 'Df1']:
         for hearing_type in ['HL', 'NonHL']:
             file_path_sub = file_path + geno_type + '_' + hearing_type + '/'
 
             with open(grouppath + geno_type + '_' + hearing_type + '.pickle', 'rb') as file:
                 Group = pickle.load(file)
-            Groups.append(Group)
             print(Group.geno_type, Group.hearing_type)
             
             '''offset_pca= neuron.PCA(Group.pop_response_stand[:,0, 450:550], multiple_gaps=False)
@@ -142,11 +140,12 @@ def Display_Group(response_per_gap, pc_corre, pca_score, trajectory_3d, travel_d
                 fig2.savefig(file_path_sub + 'OnOff/Noise_Return_Silence_Diff_Subspace.png')
                 
             if model:
-                Input = 'simple'
+                Input = 'complex'
                 Model = result.Model(Group, gap_idx = 8, input = Input)
                 Model.model.opti_start, Model.model.opti_end = 0, 350 + Model.gap_dur
                 Model.model.Optimize_Params()
                 Model.model.Run()
+                #Input = ""
                 fig1, fig2, fig3, fig4, fig5 = Model.Draw()
                 fig1.savefig(file_path_sub+'Model/' + Input + '/Trajectory.png')
                 fig2.savefig(file_path_sub+'Model/' + Input + '/Trajectory_3d.png')
@@ -161,23 +160,23 @@ def main():
     Display_Group(response_per_gap = False, 
                   pc_corre = False,
                   pca_score = False, 
-                  trajectory_3d = True, 
-                  travel_degree=True,
-                  trajectory_3d_by_event = True, 
-                  trajectory_event = True, 
-                  distance = True, 
-                  angle = True, 
+                  trajectory_3d = False, 
+                  travel_degree=False,
+                  trajectory_3d_by_event = False, 
+                  trajectory_event = False, 
+                  distance = False, 
+                  angle = False, 
                   principal_angle = False,
-                  onoff = True,
+                  onoff = False,
                   on_gap_dependent = False, 
                   return_background = False,
-                  model = False,
+                  model = True,
                   file_path = '../Images/')
     
     '''
-    Display_Group_Summary(unit_type = True, 
-                          pc_corre = True,
-                          pca_variance = True, 
+    Display_Group_Summary(unit_type = False, 
+                          pc_corre = False,
+                          pca_variance = False, 
                           distance = False, 
                           angle = False, 
                           travel = False, 

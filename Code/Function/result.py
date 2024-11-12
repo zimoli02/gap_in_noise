@@ -625,7 +625,160 @@ class PCA:
                 if Flip(PC[i][100:350], 25): PC[i] *= -1     
             return PC
         
+        def Draw_PC_Variance_Plot():
+            fig1, axs = plt.subplots(1,1,figsize = (5,5))
+            axs.plot(onset_pca.variance[0:10], label = 'on-resp', color = 'darkblue')
+            axs.plot(offset_pca.variance[0:10], label = 'off-resp', color = 'lightblue')
+            axs.plot(onset_exclude_noise_pca.variance[0:10], label = 'on-resp excluding noise', color = 'darkgreen')
+            axs.plot(offset_exclude_noise_pca.variance[0:10], label = 'off-resp excluding noise', color = 'lightgreen')
+            axs.legend(fontsize = 16)
+            plt.tight_layout()
+            return fig1 
+        
+        def Draw_PC_Plot():
+            fig2, axs = plt.subplots(3, 2, figsize = (16, 18))
+            for i in range(3):
+                if Flip(onset_pca.score[i], 25): onset_pca.score[i] *= -1
+                if Flip(offset_pca.score[i], 50): offset_pca.score[i] *= -1
+                if Flip(onset_exclude_noise_pca.score[i], 25): onset_exclude_noise_pca.score[i] *= -1
+                if Flip(offset_exclude_noise_pca.score[i], 50): offset_exclude_noise_pca.score[i] *= -1
+                
+                axs[i,0].plot(onset_pca.score[i], color = 'black', label = 'Original')
+                axs[i,1].plot(offset_pca.score[i], color = 'black', label = 'Original')
+                axs[i,0].plot(onset_exclude_noise_pca.score[i], color = 'red', label = 'Exclude Noise Resp')
+                axs[i,1].plot(offset_exclude_noise_pca.score[i], color = 'red', label = 'Exclude Noise Resp')
+                
+                axs[i,0].set_ylabel('PC #'+str(i+1), fontsize = 16)
+                for j in range(2):
+                    axs[i,j].axhline(y = 0, linestyle = ':', color = 'grey')
+                    axs[i,j].legend(fontsize = 14)
+                axs[i,0].set_xticks([0,50, 100],['0','50','100'])
+                axs[i,1].set_xticks([0,50, 100, 150],['0','50','100', '150'])
+            axs[0,0].set_title('On-Response', fontsize = 20)
+            axs[0,1].set_title('Off-Response', fontsize = 20)
+            axs[2,0].set_xlabel('Time (ms)', fontsize = 16)
+            axs[2,1].set_xlabel('Time (ms)', fontsize = 16)
+            plt.tight_layout()
+            return fig2
+        
+        def Draw_Trajectory_3d():
+            fig3, axs = plt.subplots(1, 2, figsize = (16, 6), subplot_kw={'projection': '3d'})
+            x_lim, y_lim, z_lim = [],[],[]
+            PC = [0,1,2]
 
+            # Onset
+            x = gaussian_filter1d(onset_pca.score[PC[0]], sigma=sigma)
+            y = gaussian_filter1d(onset_pca.score[PC[1]], sigma=sigma)
+            z = gaussian_filter1d(onset_pca.score[PC[2]], sigma=sigma)
+            axs[0].plot(x, y, z, label = 'Original', color = 'black')
+            axs[0].scatter(x[0], y[0], z[0], color = 'darkblue', s = 30)
+            x_lim.append([min(x), max(x)])
+            y_lim.append([min(y), max(y)])
+            z_lim.append([min(z), max(z)])
+
+            x = gaussian_filter1d(onset_exclude_noise_pca.score[PC[0]], sigma=sigma)
+            y = gaussian_filter1d( onset_exclude_noise_pca.score[PC[1]], sigma=sigma)
+            z = gaussian_filter1d(onset_exclude_noise_pca.score[PC[2]], sigma=sigma)
+            axs[0].plot(x, y, z, label = 'Exclude Noise Resp', color = 'red')
+            axs[0].scatter(x[0], y[0], z[0], color = 'darkblue', s = 30)
+            axs[0].scatter([], [], [], color = 'darkblue', s = 30, label = 'Start')
+            axs[0].scatter(0,0,0, color = 'green', s = 30, label = 'Origin')
+            x_lim.append([min(x), max(x)])
+            y_lim.append([min(y), max(y)])
+            z_lim.append([min(z), max(z)])
+
+
+            # Offset
+            x = gaussian_filter1d(offset_pca.score[PC[0]], sigma=sigma)
+            y = gaussian_filter1d(offset_pca.score[PC[1]], sigma=sigma)
+            z = gaussian_filter1d(offset_pca.score[PC[2]], sigma=sigma)
+            axs[1].plot(x, y, z, label = 'Original', color = 'black')
+            axs[1].scatter(x[0], y[0], z[0], color = 'darkblue', s = 30)
+            x_lim.append([min(x), max(x)])
+            y_lim.append([min(y), max(y)])
+            z_lim.append([min(z), max(z)])
+
+            x = gaussian_filter1d(offset_exclude_noise_pca.score[PC[0]], sigma=sigma)
+            y = gaussian_filter1d(offset_exclude_noise_pca.score[PC[1]], sigma=sigma)
+            z = gaussian_filter1d(offset_exclude_noise_pca.score[PC[2]], sigma=sigma)
+            axs[1].plot(x, y, z, label = 'Exclude Noise Resp', color = 'red')
+            axs[1].scatter(x[0], y[0], z[0], color = 'darkblue', s = 30)
+            axs[1].scatter([], [], [], color = 'darkblue', s = 30, label = 'Start')
+            axs[1].scatter(0,0,0, color = 'green', s = 30, label = 'Origin')
+            x_lim.append([min(x), max(x)])
+            y_lim.append([min(y), max(y)])
+            z_lim.append([min(z), max(z)])
+
+            axs[0].set_title('On-Response', fontsize = 20)
+            axs[1].set_title('Off-Response', fontsize = 20)
+
+            x_lim, y_lim, z_lim = np.array(x_lim), np.array(y_lim), np.array(z_lim)
+            xlim = (min(x_lim[:,0]),max(x_lim[:,1]))
+            ylim = (min(y_lim[:,0]),max(y_lim[:,1]))
+            zlim = (min(z_lim[:,0]),max(z_lim[:,1]))
+            for i in range(2):
+                axs[i].legend(loc = 'upper left', fontsize = 16)
+                axs[i].set_xlim(xlim)
+                axs[i].set_ylim(ylim)
+                axs[i].set_zlim(zlim)
+                style_3d_ax(axs[i], PC)
+            plt.tight_layout()
+            return fig3
+        
+        def Draw_Projection_to_Period_Heatmap():
+            fig4, axs = plt.subplots(2, 3, figsize=(5, 24))
+            axs = axs.flatten()
+            onset_sortidx = np.argsort(onset_exclude_noise_pca.loading[0])[::-1]
+            sns.heatmap(onset[onset_sortidx], ax = axs[0], cmap = 'RdBu', cbar = False)  
+            sns.heatmap(onset_projection[onset_sortidx], ax = axs[1], cmap = 'RdBu', cbar = False) 
+            sns.heatmap(onset_exclude_noise[onset_sortidx], ax = axs[2], cmap = 'RdBu', cbar = False) 
+            
+            offset_sortidx = np.argsort(offset_exclude_noise_pca.loading[0])[::-1]
+            sns.heatmap(offset[offset_sortidx], ax = axs[3], cmap = 'RdBu', cbar = False)  
+            sns.heatmap(offset_projection[offset_sortidx], ax = axs[4], cmap = 'RdBu', cbar = False)  
+            sns.heatmap(offset_exclude_noise[offset_sortidx], ax = axs[5], cmap = 'RdBu', cbar = False) 
+            for i in range(6):
+                axs[i].set_aspect('auto')
+                axs[i].set_xticks([])
+                axs[i].set_xticklabels([], rotation = 0)
+                axs[i].set_ylabel('')
+                axs[i].set_yticks([])
+            axs[0].set_ylabel('On-Resp', fontsize = 16)
+            axs[3].set_ylabel('Off-Resp', fontsize = 16)
+            axs[0].set_title('Original', fontsize = 16)
+            axs[1].set_title('Projection', fontsize = 16)
+            axs[2].set_title('Proj - Out', fontsize = 16)
+            plt.tight_layout()
+            return fig4 
+        
+        def Draw_Projection_to_Subsplace_Heatmap():
+            data = self.group.pop_response_stand[:,gap_idx,:]
+            fig5, axs = plt.subplots(6, 1, figsize=(24, 18), gridspec_kw={'height_ratios': [30, 30, 30, 30, 30, 1]})
+            PCs = 20
+            sns.heatmap(Align_PC_Sign(onset_exclude_noise_pca.loading @ data)[:PCs], ax = axs[0], cmap = 'RdBu', cbar = False)  
+            axs[0].set_ylabel('On-Resp Subspace', fontsize = 16)
+            
+            sns.heatmap(Align_PC_Sign(offset_exclude_noise_pca.loading @ data)[:PCs], ax = axs[1], cmap = 'RdBu', cbar = False)  
+            axs[1].set_ylabel('Off-Resp Subspace', fontsize = 16)
+
+            sns.heatmap(Align_PC_Sign(gap_pca.loading @ data)[:PCs], ax = axs[2], cmap = 'RdBu', cbar = False)  
+            axs[2].set_ylabel('Gap Subspace', fontsize = 16)
+
+            sns.heatmap(Align_PC_Sign(gap_no_onset_pca.loading @ data)[:PCs], ax = axs[3], cmap = 'RdBu', cbar = False)  
+            axs[3].set_ylabel('Gap-Excl-OnResp Subspace', fontsize = 16)
+
+            sns.heatmap(Align_PC_Sign(gap_no_offset_pca.loading @ data)[:PCs], ax = axs[4], cmap = 'RdBu', cbar = False)  
+            axs[4].set_ylabel('Gap-Excl-OnResp Subspace', fontsize = 16)
+
+            sns.heatmap([self.group.gaps_label[gap_idx]], ax=axs[5], cmap='Blues', vmin=0, vmax=1, cbar=False)
+            for i in range(6):
+                axs[i].set_aspect('auto')
+                axs[i].set_xticks([])
+                axs[i].set_xticklabels([], rotation = 0)
+                axs[i].set_yticks([])
+            plt.tight_layout()
+            return fig5
+        
         gap_idx = 9
         gap_dur = round(self.group.gaps[gap_idx]*1000+350)
 
@@ -651,151 +804,12 @@ class PCA:
         gap_no_onset_pca = neuron.PCA(gap_no_onset, multiple_gaps = False)
         gap_no_offset_pca = neuron.PCA(gap_no_offset, multiple_gaps = False)
 
-        fig1, axs = plt.subplots(1,1,figsize = (5,5))
-        axs.plot(onset_pca.variance[0:10], label = 'on-resp', color = 'darkblue')
-        axs.plot(offset_pca.variance[0:10], label = 'off-resp', color = 'lightblue')
-        axs.plot(onset_exclude_noise_pca.variance[0:10], label = 'on-resp excluding noise', color = 'darkgreen')
-        axs.plot(offset_exclude_noise_pca.variance[0:10], label = 'off-resp excluding noise', color = 'lightgreen')
-        axs.legend(fontsize = 16)
-        plt.tight_layout()
-        
-        fig2, axs = plt.subplots(3, 2, figsize = (16, 18))
-        for i in range(3):
-            if Flip(onset_pca.score[i], 25): onset_pca.score[i] *= -1
-            if Flip(offset_pca.score[i], 50): offset_pca.score[i] *= -1
-            if Flip(onset_exclude_noise_pca.score[i], 25): onset_exclude_noise_pca.score[i] *= -1
-            if Flip(offset_exclude_noise_pca.score[i], 50): offset_exclude_noise_pca.score[i] *= -1
-            
-            axs[i,0].plot(onset_pca.score[i], color = 'black', label = 'Original')
-            axs[i,1].plot(offset_pca.score[i], color = 'black', label = 'Original')
-            axs[i,0].plot(onset_exclude_noise_pca.score[i], color = 'red', label = 'Exclude Noise Resp')
-            axs[i,1].plot(offset_exclude_noise_pca.score[i], color = 'red', label = 'Exclude Noise Resp')
-            
-            axs[i,0].set_ylabel('PC #'+str(i+1), fontsize = 16)
-            for j in range(2):
-                axs[i,j].axhline(y = 0, linestyle = ':', color = 'grey')
-                axs[i,j].legend(fontsize = 14)
-            axs[i,0].set_xticks([0,50, 100],['0','50','100'])
-            axs[i,1].set_xticks([0,50, 100, 150],['0','50','100', '150'])
-        axs[0,0].set_title('On-Response', fontsize = 20)
-        axs[0,1].set_title('Off-Response', fontsize = 20)
-        axs[2,0].set_xlabel('Time (ms)', fontsize = 16)
-        axs[2,1].set_xlabel('Time (ms)', fontsize = 16)
-        plt.tight_layout()
+        fig1 = Draw_PC_Variance_Plot()
+        fig2 = Draw_PC_Plot()
+        fig3 = Draw_Trajectory_3d()
+        fig4 = Draw_Projection_to_Period_Heatmap()
+        fig5 = Draw_Projection_to_Subsplace_Heatmap()
 
-        
-        fig3, axs = plt.subplots(1, 2, figsize = (16, 6), subplot_kw={'projection': '3d'})
-        x_lim, y_lim, z_lim = [],[],[]
-        PC = [0,1,2]
-
-        # Onset
-        x = gaussian_filter1d(onset_pca.score[PC[0]], sigma=sigma)
-        y = gaussian_filter1d(onset_pca.score[PC[1]], sigma=sigma)
-        z = gaussian_filter1d(onset_pca.score[PC[2]], sigma=sigma)
-        axs[0].plot(x, y, z, label = 'Original', color = 'black')
-        axs[0].scatter(x[0], y[0], z[0], color = 'darkblue', s = 30)
-        x_lim.append([min(x), max(x)])
-        y_lim.append([min(y), max(y)])
-        z_lim.append([min(z), max(z)])
-
-        x = gaussian_filter1d(onset_exclude_noise_pca.score[PC[0]], sigma=sigma)
-        y = gaussian_filter1d( onset_exclude_noise_pca.score[PC[1]], sigma=sigma)
-        z = gaussian_filter1d(onset_exclude_noise_pca.score[PC[2]], sigma=sigma)
-        axs[0].plot(x, y, z, label = 'Exclude Noise Resp', color = 'red')
-        axs[0].scatter(x[0], y[0], z[0], color = 'darkblue', s = 30)
-        axs[0].scatter([], [], [], color = 'darkblue', s = 30, label = 'Start')
-        axs[0].scatter(0,0,0, color = 'green', s = 30, label = 'Origin')
-        x_lim.append([min(x), max(x)])
-        y_lim.append([min(y), max(y)])
-        z_lim.append([min(z), max(z)])
-
-
-        # Offset
-        x = gaussian_filter1d(offset_pca.score[PC[0]], sigma=sigma)
-        y = gaussian_filter1d(offset_pca.score[PC[1]], sigma=sigma)
-        z = gaussian_filter1d(offset_pca.score[PC[2]], sigma=sigma)
-        axs[1].plot(x, y, z, label = 'Original', color = 'black')
-        axs[1].scatter(x[0], y[0], z[0], color = 'darkblue', s = 30)
-        x_lim.append([min(x), max(x)])
-        y_lim.append([min(y), max(y)])
-        z_lim.append([min(z), max(z)])
-
-        x = gaussian_filter1d(offset_exclude_noise_pca.score[PC[0]], sigma=sigma)
-        y = gaussian_filter1d(offset_exclude_noise_pca.score[PC[1]], sigma=sigma)
-        z = gaussian_filter1d(offset_exclude_noise_pca.score[PC[2]], sigma=sigma)
-        axs[1].plot(x, y, z, label = 'Exclude Noise Resp', color = 'red')
-        axs[1].scatter(x[0], y[0], z[0], color = 'darkblue', s = 30)
-        axs[1].scatter([], [], [], color = 'darkblue', s = 30, label = 'Start')
-        axs[1].scatter(0,0,0, color = 'green', s = 30, label = 'Origin')
-        x_lim.append([min(x), max(x)])
-        y_lim.append([min(y), max(y)])
-        z_lim.append([min(z), max(z)])
-
-        axs[0].set_title('On-Response', fontsize = 20)
-        axs[1].set_title('Off-Response', fontsize = 20)
-
-        x_lim, y_lim, z_lim = np.array(x_lim), np.array(y_lim), np.array(z_lim)
-        xlim = (min(x_lim[:,0]),max(x_lim[:,1]))
-        ylim = (min(y_lim[:,0]),max(y_lim[:,1]))
-        zlim = (min(z_lim[:,0]),max(z_lim[:,1]))
-        for i in range(2):
-            axs[i].legend(loc = 'upper left', fontsize = 16)
-            axs[i].set_xlim(xlim)
-            axs[i].set_ylim(ylim)
-            axs[i].set_zlim(zlim)
-            style_3d_ax(axs[i], PC)
-        plt.tight_layout()
-
-        fig4, axs = plt.subplots(2, 3, figsize=(5, 24))
-        axs = axs.flatten()
-        onset_sortidx = np.argsort(onset_exclude_noise_pca.loading[0])[::-1]
-        sns.heatmap(onset[onset_sortidx], ax = axs[0], cmap = 'RdBu', cbar = False)  
-        sns.heatmap(onset_projection[onset_sortidx], ax = axs[1], cmap = 'RdBu', cbar = False) 
-        sns.heatmap(onset_exclude_noise[onset_sortidx], ax = axs[2], cmap = 'RdBu', cbar = False) 
-        
-        offset_sortidx = np.argsort(offset_exclude_noise_pca.loading[0])[::-1]
-        sns.heatmap(offset[offset_sortidx], ax = axs[3], cmap = 'RdBu', cbar = False)  
-        sns.heatmap(offset_projection[offset_sortidx], ax = axs[4], cmap = 'RdBu', cbar = False)  
-        sns.heatmap(offset_exclude_noise[offset_sortidx], ax = axs[5], cmap = 'RdBu', cbar = False) 
-        for i in range(6):
-            axs[i].set_aspect('auto')
-            axs[i].set_xticks([])
-            axs[i].set_xticklabels([], rotation = 0)
-            axs[i].set_ylabel('')
-            axs[i].set_yticks([])
-        axs[0].set_ylabel('On-Resp', fontsize = 16)
-        axs[3].set_ylabel('Off-Resp', fontsize = 16)
-        axs[0].set_title('Original', fontsize = 16)
-        axs[1].set_title('Projection', fontsize = 16)
-        axs[2].set_title('Proj - Out', fontsize = 16)
-        plt.tight_layout()
-        
-        data = self.group.pop_response_stand[:,gap_idx,:]
-        fig5, axs = plt.subplots(6, 1, figsize=(24, 18), gridspec_kw={'height_ratios': [30, 30, 30, 30, 30, 1]})
-        PCs = 20
-        sns.heatmap(Align_PC_Sign(onset_exclude_noise_pca.loading @ data)[:PCs], ax = axs[0], cmap = 'RdBu', cbar = False)  
-        axs[0].set_ylabel('On-Resp Subspace', fontsize = 16)
-        
-        sns.heatmap(Align_PC_Sign(offset_exclude_noise_pca.loading @ data)[:PCs], ax = axs[1], cmap = 'RdBu', cbar = False)  
-        axs[1].set_ylabel('Off-Resp Subspace', fontsize = 16)
-
-        sns.heatmap(Align_PC_Sign(gap_pca.loading @ data)[:PCs], ax = axs[2], cmap = 'RdBu', cbar = False)  
-        axs[2].set_ylabel('Gap Subspace', fontsize = 16)
-
-        sns.heatmap(Align_PC_Sign(gap_no_onset_pca.loading @ data)[:PCs], ax = axs[3], cmap = 'RdBu', cbar = False)  
-        axs[3].set_ylabel('Gap-Excl-OnResp Subspace', fontsize = 16)
-
-        sns.heatmap(Align_PC_Sign(gap_no_offset_pca.loading @ data)[:PCs], ax = axs[4], cmap = 'RdBu', cbar = False)  
-        axs[4].set_ylabel('Gap-Excl-OnResp Subspace', fontsize = 16)
-
-        sns.heatmap([self.group.gaps_label[gap_idx]], ax=axs[5], cmap='Blues', vmin=0, vmax=1, cbar=False)
-        for i in range(6):
-            axs[i].set_aspect('auto')
-            axs[i].set_xticks([])
-            axs[i].set_xticklabels([], rotation = 0)
-            axs[i].set_yticks([])
-        plt.tight_layout()
-        
         return fig1, fig2, fig3, fig4, fig5
         
     def Plot_Gap_Dependent_On_Response(self):
@@ -1130,7 +1144,7 @@ class DynamicalSystem_Simple:
         self.N = np.zeros((3, len(self.times)))
         
         self.opti_start, self.opti_end = 0, 1000
-        self.lr = 0.005
+        self.lr = 0.007
         self.opti_corre = []
         
     def Set_Gap_Dependent_Params(self):
@@ -1139,6 +1153,7 @@ class DynamicalSystem_Simple:
         
         self.OnS = np.array(self.group.gaps_label[self.gap_idx]) * 1
         self.OffS = 1 - self.OnS
+        for t in range(100): self.OffS[t] = 0
         
     def Flip(self,PC):
         max_idx = np.argsort(abs(PC)[100:125])[::-1]
@@ -1184,9 +1199,9 @@ class DynamicalSystem_Simple:
             ## Connections
             self.W = np.array(
                 [
-                    [-0.05, 0.9, 0.23],
-                    [-0.06, -0.23, 0.02],
-                    [-0.09, -0.4, -0.04]
+                    [-0.05, -0.1, 0.23],
+                    [-0.07, -0.2, 0.03],
+                    [-0.09, -0.4, 0.01]
                 ]
             ) 
 
@@ -1218,6 +1233,16 @@ class DynamicalSystem_Simple:
             correlation = covariance / (x_std * y_std)
             return correlation
         
+        def constrain_W_columns(W):
+            with torch.no_grad():
+                # First column positive
+                W[:, 0] = -torch.abs(W[:, 0])
+                # Second column negative
+                W[:, 1] = -torch.abs(W[:, 1])
+                # Third column positive
+                W[:, 2] = torch.abs(W[:, 2])
+            return W
+        
         def exponential_decay(start, t, tau):
             return torch.exp(-(t-start) / tau)
         
@@ -1240,7 +1265,8 @@ class DynamicalSystem_Simple:
 
         # Define the optimizer
         optimizer = torch.optim.Adam([W, OnRe, OffRe, Nt, tau_on, tau_off], lr= self.lr)
-
+        W = constrain_W_columns(W)
+         
         # Number of iterations
         num_iterations = 1000
 
@@ -1257,7 +1283,7 @@ class DynamicalSystem_Simple:
                 OffS_D = torch.zeros_like(OffS)
 
                 # Precompute the exponential decay for sound-on and sound-off periods
-                for t in range(1, len(self.times)):
+                for t in range(100, len(self.times)):
                     if OnS[t] == 1:  # Sound is on, use tau_on
                         OnS_D[t] = exponential_decay(starts[t],torch.tensor(t, dtype=torch.float32), tau_on*100)
                     else:  # Sound is off, use tau_off
@@ -1285,6 +1311,7 @@ class DynamicalSystem_Simple:
                 # Backpropagate
                 loss.backward()
                 optimizer.step()  # Update parameters
+                W = constrain_W_columns(W)
 
                 # Keep track of the maximum correlation and best N
                 if average_corre.item() > max_corre:
@@ -1292,7 +1319,7 @@ class DynamicalSystem_Simple:
                     self.opti_corre.append([iter, max_corre])
 
                 # Check for convergence (if correlation change is very small)
-                if len(self.opti_corre) > 3 and abs(self.opti_corre[-1][1] - self.opti_corre[-2][1]) < 5e-4:
+                if len(self.opti_corre) > 3 and abs(self.opti_corre[-1][1] - self.opti_corre[-2][1]) < 5e-5:
                     print("Convergence reached.")
                     break
             
@@ -1317,7 +1344,7 @@ class DynamicalSystem_Simple:
             
         self.OnS_D, self.OffS_D = np.zeros(len(self.times)), np.zeros(len(self.times))
         
-        for t in range(1, len(self.times)):
+        for t in range(100, len(self.times)):
             if self.OnS[t] == 1:  # Sound is on, use tau_on
                 self.OnS_D[t] = exponential_decay_np(starts[t], t, self.tau_on)
             else:  # Sound is off, use tau_off
@@ -1354,10 +1381,10 @@ class DynamicalSystem_Complex:
         self.OffRe = None 
         
         self.S_on, self.S_off = 50, 1
-        self.tau_I_on, self.tau_I_on_coef = 8.4, 1
-        self.tau_A_on, self.tau_A_on_coef = 14.6, 1
+        self.tau_I_on, self.tau_I_on_coef = 12, 1
+        self.tau_A_on, self.tau_A_on_coef = 20, 1
         self.tau_I_off, self.tau_I_off_coef = 0.2, 1
-        self.tau_A_off, self.tau_A_off_coef = 10.5, 1
+        self.tau_A_off, self.tau_A_off_coef = 16, 1
         self.delay_on, self.delay_on_coef = 5, 1
         self.delay_off, self.delay_off_coef = 10, 1
         
@@ -1367,7 +1394,7 @@ class DynamicalSystem_Complex:
         self.N = np.zeros((3, len(self.times)))
         
         self.opti_start, self.opti_end = 0, 1000
-        self.lr = 0.005
+        self.lr = 0.007
         self.opti_corre = []
         
     def Set_Gap_Dependent_Params(self):
@@ -1541,9 +1568,9 @@ class DynamicalSystem_Complex:
             ## Connections
             self.W = np.array(
                 [
-                    [-0.05, 0.9, 0.23],
-                    [-0.06, -0.23, 0.02],
-                    [-0.09, -0.4, -0.04]
+                    [-0.05, -0.1, 0.23],
+                    [-0.07, -0.2, 0.03],
+                    [-0.09, -0.4, 0.01]
                 ]
             ) 
 
@@ -1575,6 +1602,13 @@ class DynamicalSystem_Complex:
             correlation = covariance / (x_std * y_std)
             return correlation
         
+        def constrain_W_columns(W):
+            with torch.no_grad():
+                W[:, 0] = -torch.abs(W[:, 0])
+                W[:, 1] = -torch.abs(W[:, 1])
+                W[:, 2] = torch.abs(W[:, 2])
+            return W
+        
         # Initialize the parameters as torch tensors with requires_grad=True
         W = torch.tensor(self.W, dtype=torch.float32, requires_grad=True)
         OnRe = torch.tensor(self.OnRe, dtype=torch.float32, requires_grad=True)
@@ -1595,7 +1629,8 @@ class DynamicalSystem_Complex:
             W, OnRe, OffRe, Nt,
             tau_I_on_coef, tau_A_on_coef, tau_I_off_coef, tau_A_off_coef, delay_on_coef, delay_off_coef
         ], lr=self.lr)
-
+        W = constrain_W_columns(W)
+        
         # Number of iterations
         num_iterations = 1000
 
@@ -1645,6 +1680,7 @@ class DynamicalSystem_Complex:
                 # Backpropagate
                 loss.backward()
                 optimizer.step()  # Update parameters
+                W = constrain_W_columns(W)
 
                 # Keep track of the maximum correlation and best N
                 if average_corre.item() > max_corre:
@@ -1712,7 +1748,6 @@ class Model:
         if self.input == 'simple': return DynamicalSystem_Simple(self.group, self.gap_idx)
         if self.input == 'complex': return DynamicalSystem_Complex(self.group, self.gap_idx)
         
-    
     def Draw(self):
         def Draw_Trace_2d():
             colors = ['black', 'red', 'blue']
@@ -1852,7 +1887,10 @@ class Model:
             for i in range(10):
                 gap_dur = round(self.group.gaps[i]*1000)
                 gap_start, gap_end = 350, 350 + gap_dur 
-                if i == 0: gap_start, gap_end = 350 + gap_dur + 100, 1000
+                pre_gap_start, pre_gap_end = 300, 351
+                if i == 0: 
+                    gap_start, gap_end = 350 + gap_dur + 100, 1000
+                    pre_gap_start, pre_gap_end = 400, 451
                 
                 self.model.gap_idx = i
                 self.model.Set_Gap_Dependent_Params()
@@ -1862,12 +1900,12 @@ class Model:
                 for j in range(3):
                     if self.model.Flip(self.N[j]): self.N[j] *= -1
                 
-                pre_distance = calculate_distance(self.N, start = 300, end = 351)
+                pre_distance = calculate_distance(self.N, start = pre_gap_start, end = pre_gap_end)
                 axs[i].scatter(np.arange(-len(pre_distance),0,1), pre_distance, color = 'darkgreen')   
                 distance = calculate_distance(self.N, start = gap_start, end = gap_end)
                 axs[i].scatter(np.arange(len(distance)), distance, color = 'darkblue')
                 
-                pre_distance_true = calculate_distance(self.PCs, start = 300, end = 351)
+                pre_distance_true = calculate_distance(self.PCs, start = pre_gap_start, end = pre_gap_end)
                 axs[i].scatter(np.arange(-len(pre_distance_true),0,1), pre_distance_true, color = 'green', alpha = 0.5)   
                 distance_true = calculate_distance(self.PCs, start = gap_start, end = gap_end)
                 axs[i].scatter(np.arange(len(distance_true)), distance_true, color = 'blue', alpha = 0.5)
