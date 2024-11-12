@@ -1,86 +1,26 @@
 import spikeinterface.full as si
 from spikeinterface.extractors import read_nwb
-
 from pynwb import NWBHDF5IO
 from ndx_sound import AcousticWaveformSeries
 
 import numpy as np
 import pandas as pd
-import scipy.stats as stats
-from sklearn.decomposition import PCA, KernelPCA
-import pickle
-from scipy.stats import sem
-from scipy.ndimage import gaussian_filter
-from scipy.optimize import curve_fit
-
-import seaborn as sns
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_pdf import PdfPages
-
-from tqdm import tqdm
-import os
-
 import copy
 
+import pickle
+import scipy.stats as stats
 
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
-
-import math
-
-
-fs = 10
-custom_params = {
-    "font.size":fs,
-    "axes.spines.right": False,
-    "axes.spines.top": False,
-    "legend.frameon":False,
-    }
-sns.set_theme(style = "ticks", rc = custom_params)
-
-basepath = '/Volumes/Zimo/Auditory/Data/'
-recordingpath = '/Volumes/Research/GapInNoise/Data/Recordings/'
-mouse = pd.read_csv('//Volumes/Research/GapInNoise/Code/Mouse_Tones.csv')
 
 import warnings
 warnings.filterwarnings("ignore", message="Ignoring cached namespace 'hdmf-common'")
 warnings.filterwarnings("ignore", message="Ignoring cached namespace 'hdmf-experimental'")
 
-def keep_diag(matrix):
-    return np.diag(np.diag(matrix))
+import analysis
 
-class PCA:
-    def __init__(self, data_stand, multiple_gaps = True):
-        self.data = data_stand
-        self.score = None 
-        self.loading = None 
-        self.variance = None
+basepath = '/Volumes/Zimo/Auditory/Data/'
+recordingpath = '/Volumes/Research/GapInNoise/Data/Recordings/'
+mouse = pd.read_csv('//Volumes/Research/GapInNoise/Code/Mouse_Tones.csv')
 
-        self.score_per_gap = None
-        
-        self.Run_PCA_Analysis()
-        if multiple_gaps: self.Separate_Multiple_Gaps()
-
-        
-    def Run_PCA_Analysis(self):
-        data = self.data.reshape(self.data.shape[0], -1)
-        U, s, Vh = np.linalg.svd(data.T, full_matrices=False)
-        
-        s_sqr = s ** 2
-        self.variance = s_sqr/np.sum(s_sqr) 
-        self.score = np.array([U.T[i] * s[i] for i in range(len(s))])
-        self.loading = Vh
-    
-    def Separate_Multiple_Gaps(self):
-        valid_PC = min(5, self.score.shape[0])
-        self.score_per_gap = self.score[:valid_PC].reshape(valid_PC, self.data.shape[1], self.data.shape[2])
-        
-class Projection:
-    def __init__(self, data, subspace):
-        self.data = data 
-        self.subspace = subspace
-        self.data_projection = keep_diag((subspace @ data.T)/ (subspace @ subspace.T + 1e-18)) @ subspace
-        self.data_exclude_projection = self.data - self.projection
-        
 
 class Group:
     def __init__(self, geno_type, hearing_type):
@@ -101,7 +41,8 @@ class Group:
         
         self.unit_num = self.pop_response.shape[0]
 
-        self.pca = PCA(self.pop_response_stand)
+        self.pca = analysis.PCA(self.pop_response_stand)
+        self.periods_pca = self.Get_PCA_for_periods()
     
     def Get_Group_Recording(self):
         if self.hearing_type == 'NonHL':
@@ -113,19 +54,19 @@ class Group:
         def Create_Sound_Cond(gap_duration):
             pre_noise = [0 for i in range(100)]
             pre_gap = [1 for i in range(250)]
-            post_gap = [1 for i in range(100)]
-            
             gap = [0 for i in range(round(gap_duration*1000))]
+            post_gap = [1 for i in range(100)]
+
             sound_cond = pre_noise + pre_gap + gap + post_gap
             
-            for i in range(len(sound_cond), 1000):
-                sound_cond.append(0)
+            for i in range(len(sound_cond), 1000): sound_cond.append(0)
+            
             return sound_cond
         
         gaps_label = []
         for i in range(len(self.gaps)):
             gaps_label.append(Create_Sound_Cond(self.gaps[i]))
-        return gaps_label
+        return np.array(gaps_label)
         
     def Get_Response_per_Recording(self):
         response_per_recording = {}
@@ -161,33 +102,44 @@ class Group:
         return meta_psth[2:]
             
     def Get_Pop_Response_Standardized(self):
-        def z_score(X): #standardize each row
+        def Normalize(X): #standardize each row
             # X: ndarray, shape (n_features, n_samples)
-            '''ss = StandardScaler(with_mean=True, with_std=True)
-            Xz = ss.fit_transform(X.T).T
-            return Xz'''
             X = X[0]
             baseline_mean = np.mean(X[0:100])
             whole_std = max(abs(X-baseline_mean))
             if whole_std == 0: return X - baseline_mean
             return (X - baseline_mean) / whole_std
-    
-        '''# Centre on the average background response in the initial silent period
-        for i in range(self.pop_response.shape[0]):
-            self.pop_response[i] -= np.mean(self.pop_response[i,:,:]) - np.mean(self.pop_response[i,:,0:20])'''
 
         meta_psth_z = np.zeros(self.pop_response.shape)
         for i in range(self.pop_response.shape[0]):
             for j in range(self.pop_response.shape[1]):
-                meta_psth_z[i,j] = z_score(self.pop_response[i,j].reshape(1,-1)) # 1*1000
+                meta_psth_z[i,j] = Normalize(self.pop_response[i,j].reshape(1,-1)) # 1*1000
                 
         return meta_psth_z
+
+    def Get_PCA_for_periods(self):
+        periods_pca = []
+        for gap_idx in range(10):
+            gap_dur = round(self.gaps[gap_idx]*1000+350)
+
+            N1_onset = self.pop_response_stand[:, gap_idx,100:200] # first 100 ms of noise1
+            N2_onset = self.pop_response_stand[:,gap_idx, gap_dur:gap_dur+100] # first 100 ms of noise2
+            N1_offset = self.pop_response_stand[:,gap_idx, gap_dur + 100: gap_dur + 100 + 100] # first 100 ms of post-N2 silence
+            N2_onset_exc_N1_on = N2_onset - N1_onset
+            N2_onset_exc_N1_on_off = N2_onset - N1_offset - N1_onset
+            
+            periods = [N1_onset, N2_onset, N2_onset_exc_N1_on, N2_onset_exc_N1_on_off, N1_offset]
+            periods_pca_per_gap = [analysis.PCA(period, multiple_gaps = False) for period in periods]
+            periods_pca.append(periods_pca_per_gap)
+        return np.array(periods_pca)
+            
 
 class Recording:
     def __init__(self, rec_name):
         self.rec_name = rec_name
         self.geno_type = mouse[mouse['Recording'] == rec_name]['Geno'].to_numpy()[0]
         self.hearing_type = None
+        self.hearing_threshold = None
         
         self.unit = None
         self.unit_id = None
@@ -199,7 +151,7 @@ class Recording:
         self.unit_onset, self.unit_offset = [], []
         self.unit_type = None
         self.response = self.Get_Neural_Response()
-        self.response_per_gap = self.Get_Response_per_Gap()
+        self.response_per_gap = self.Get_Neural_Response_per_Gap()
         
         self.pop_response = self.Get_Pop_Response()
         self.pop_response_stand = self.Get_Pop_Response_Standardized()
@@ -210,12 +162,15 @@ class Recording:
     def Get_Info(self):
         if mouse[mouse['Recording'] == self.rec_name]['L_Thres'].to_numpy()[0] < 42: self.hearing_type = 'HL'
         else: self.hearing_type = 'NonHL'
+        self.hearing_threshold = (mouse[mouse['Recording'] == self.rec_name]['L_Thres'].to_numpy()[0] 
+                                  + mouse[mouse['Recording'] == self.rec_name]['R_Thres'].to_numpy()[0])/2
         
         # Get Channel
-        self.unit = np.load(basepath + self.rec_name+'/FRA_unit.npy')
+        self.unit = np.load(basepath + self.rec_name + '/FRA_unit.npy')
         
         # Get signal
-        self.sorting = read_nwb(basepath + self.rec_name + '/' + self.rec_name + '.nwb', load_recording=False, load_sorting=True, electrical_series_name='ElectricalSeriesAP')
+        self.sorting = read_nwb(basepath + self.rec_name + '/' + self.rec_name + '.nwb', 
+                                load_recording=False, load_sorting=True, electrical_series_name='ElectricalSeriesAP')
         
         # Get gap_onset time/frame
         io = NWBHDF5IO(basepath + self.rec_name + '/' + self.rec_name + '.nwb', "r")
@@ -296,7 +251,7 @@ class Recording:
         sig_psth, unit_id = sig_psth[bkg_std>0], self.unit_id[bkg_std>0] #Only want responsive neurons?
         return {'spike':spikes, 'sig_psth':sig_psth, 'unit_id':unit_id}
     
-    def Get_Response_per_Gap(self):      
+    def Get_Neural_Response_per_Gap(self):      
         response_per_gap = []
         for i in range(len(self.gaps)):
             matrix = np.array([[] for i in range(self.response['sig_psth'].shape[0])])
@@ -307,18 +262,23 @@ class Recording:
         return np.array(response_per_gap)
     
     def Get_Pop_Response(self):
+        def Calculate_Z_Score(pre, post):
+            pre_mean, pre_std = np.mean(pre), np.std(pre)
+            post_mean = np.mean(post)
+            return (post_mean - pre_mean)/(pre_std + 1e-10)
+                
+            
         def Calculate_Onset_Offset(matrix):
-            epsilon = 1e-10
             for i in range(len(matrix)):
-                self.unit_onset.append((np.mean(matrix[i][100:200]+epsilon))/(np.mean(matrix[i][50:100])+epsilon))
-                self.unit_offset.append((np.mean(matrix[i][460:560])+epsilon)/(np.mean(matrix[i][400:450])+epsilon))
+                self.unit_onset.append(Calculate_Z_Score(matrix[i][50:100], matrix[i][100:200]))
+                self.unit_offset.append(Calculate_Z_Score(matrix[i][400:450], matrix[i][460:560]))
             
             onset, offset = np.array(self.unit_onset), np.array(self.unit_offset)
-            self.unit_type = np.array(['None' for i in range(len(self.unit_onset))])
-            self.unit_type[np.where((onset > 1.5) & (offset < 1.5))] = 'on'
-            self.unit_type[np.where((onset < 1.5) & (offset > 1.5))] = 'off'
-            self.unit_type[np.where((onset > 1.5) & (offset > 1.5))] = 'both'
-            self.unit_type[np.where((onset < 1.5) & (offset < 1.5))] = 'none'
+            self.unit_type = np.array(['none' for i in range(len(self.unit_onset))])
+            self.unit_type[np.where((onset > 3) & (offset < 3))] = 'on'
+            self.unit_type[np.where((onset < 3) & (offset > 3))] = 'off'
+            self.unit_type[np.where((onset > 3) & (offset > 3))] = 'both'
+            self.unit_type[np.where((onset < 3) & (offset < 3))] = 'none'
                 
         meta_psth = np.zeros((2, 10, 1000))
         meta_psth = np.concatenate((meta_psth,
@@ -328,13 +288,9 @@ class Recording:
         return meta_psth[2:]
             
     def Get_Pop_Response_Standardized(self):
-        def z_score(X): #standardize each row
-            # X: ndarray, shape (n_features, n_samples)
-            '''ss = StandardScaler(with_mean=True, with_std=True)
-            Xz = ss.fit_transform(X.T).T
-            return Xz'''
+        def Normalize(X): #Normalize each row
             X = X[0]
-            baseline_mean = np.mean(X[0:100])
+            baseline_mean = np.mean(X[50:100])
             whole_std = max(abs(X-baseline_mean))
             if whole_std == 0: return X - baseline_mean
             return (X - baseline_mean) / whole_std
@@ -342,7 +298,7 @@ class Recording:
         meta_psth_z = np.zeros(self.pop_response.shape)
         for i in range(self.pop_response.shape[0]):
             for j in range(self.pop_response.shape[1]):
-                meta_psth_z[i,j] = z_score(self.pop_response[i,j].reshape(1,-1)) # 1*200
+                meta_psth_z[i,j] = Normalize(self.pop_response[i,j].reshape(1,-1)) # 1*200
                 
         return meta_psth_z
     
@@ -352,3 +308,4 @@ class Recording:
         
         with open(recordingpath + self.rec_name + '.pickle', 'wb') as file:
             pickle.dump(recording_, file)
+
