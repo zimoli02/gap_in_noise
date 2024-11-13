@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 from tqdm import tqdm
 
 def Flip(PC):
@@ -237,7 +238,8 @@ class DynamicalSystem_Exponential:
             if self.Flip(self.N[i]): self.N[i] *= -1
         
         self.x, self.y, self.z = self.N[0], self.N[1], self.N[2]
-    
+
+
 class DynamicalSystem_Complex:
     def __init__(self, group, gap_idx):
         self.group = group 
@@ -257,9 +259,9 @@ class DynamicalSystem_Complex:
         self.OffRe = None 
         
         self.S_on, self.S_off = 60, 10
-        self.tau_I_on, self.tau_I_on_coef = 2, 1
-        self.tau_A_on, self.tau_A_on_coef = 15, 1
-        self.tau_I_off, self.tau_I_off_coef = 1.6, 1
+        self.tau_I_on, self.tau_I_on_coef = 8, 1
+        self.tau_A_on, self.tau_A_on_coef = 10, 1
+        self.tau_I_off, self.tau_I_off_coef = 2, 1
         self.tau_A_off, self.tau_A_off_coef = 20, 1
         self.delay_on, self.delay_on_coef = 5, 1
         self.delay_off, self.delay_off_coef = 10, 1
@@ -270,8 +272,9 @@ class DynamicalSystem_Complex:
         self.N = np.zeros((3, len(self.times)))
         
         self.opti_start, self.opti_end = 0, 1000
-        self.lr = 0.007
-        self.opti_corre = []
+        self.lr = 0.005
+        self.opti_loss, self.full_loss = [], []
+        
         
     def Set_Gap_Dependent_Params(self):
         self.gap_dur = round(self.group.gaps[self.gap_idx]*1000)
@@ -291,7 +294,7 @@ class DynamicalSystem_Complex:
             scores = self.group.pca.score_per_gap[PC[j]]
             
             score_per_gap = scores[self.gap_idx]
-            score_per_gap = (score_per_gap-np.mean(score_per_gap[:100]))/np.max(abs(score_per_gap))
+            #score_per_gap = (score_per_gap-np.mean(score_per_gap[:100]))/np.max(abs(score_per_gap))
             if self.Flip(score_per_gap): score_per_gap = score_per_gap * (-1)
             PCs.append(score_per_gap)
         self.PCs = np.array(PCs)
@@ -436,55 +439,37 @@ class DynamicalSystem_Complex:
             ## Timescale
             self.Nt = np.array(
                 [
-                    [0.16],
-                    [0.36],
-                    [0.18]
+                    [0.14],
+                    [0.18],
+                    [0.06]
                 ]
             ) 
             ## Connections
             self.W = np.array(
                 [
-                    [-0.06, -0.09, 0.05],
-                    [-0.12, -0.22, 0.09],
-                    [-0.24, -0.39, 0]
+                    [-0.06, -0.05, -0.04],
+                    [-0.12, -0.18, -0.02],
+                    [-0.22, -0.35, -0.2]
                 ]
             ) 
 
             ## Response to Stimuli
             self.OnRe = np.array(
                 [
-                    [0.9],
-                    [1.46],
-                    [2.51]
+                    [1.05],
+                    [1.37],
+                    [2.46]
                 ]
             ) 
             self.OffRe = np.array(
                 [
-                    [-0.53],
-                    [-0.36],
-                    [1.33]
+                    [-0.06],
+                    [0.22],
+                    [1.18]
                 ]
             ) 
         
     def Optimize_Params(self):
-        def pearson_corr(x, y):
-            x_mean = torch.mean(x)
-            y_mean = torch.mean(y)
-            x_centered = x - x_mean
-            y_centered = y - y_mean
-            covariance = torch.sum(x_centered * y_centered)
-            x_std = torch.sqrt(torch.sum(x_centered ** 2))
-            y_std = torch.sqrt(torch.sum(y_centered ** 2))
-            correlation = covariance / (x_std * y_std)
-            return correlation
-        
-        def constrain_W_columns(W):
-            with torch.no_grad():
-                W[:, 0] = -torch.abs(W[:, 0])
-                W[:, 1] = -torch.abs(W[:, 1])
-                W[:, 2] = torch.abs(W[:, 2])
-            return W
-        
         # Initialize the parameters as torch tensors with requires_grad=True
         W = torch.tensor(self.W, dtype=torch.float32, requires_grad=True)
         OnRe = torch.tensor(self.OnRe, dtype=torch.float32, requires_grad=True)
@@ -505,13 +490,18 @@ class DynamicalSystem_Complex:
             W, OnRe, OffRe, Nt,
             tau_I_on_coef, tau_A_on_coef, tau_I_off_coef, tau_A_off_coef, delay_on_coef, delay_off_coef
         ], lr=self.lr)
-        #W = constrain_W_columns(W)
+        scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5, verbose=True)
+
         
         # Number of iterations
-        num_iterations = 1000
-
-        # Store the maximum correlation and max_N during training
-        max_corre = -1
+        num_iterations = 500
+        
+        # Set threshold for minimum change in loss
+        patience = 5  # Number of iterations to wait
+        min_delta = 5e-5  # Minimum change in loss to be considered significant
+        best_loss = float('inf')
+        patience_counter = 0
+        self.opti_loss, self.full_loss = [], []
 
         # Optimization loop
         total_steps = num_iterations * (len(self.times))
@@ -539,30 +529,28 @@ class DynamicalSystem_Complex:
                 
                 # Calculate N over time steps
                 for t in range(1, len(self.times)):
-                    noise = torch.normal(0, np.sqrt(0.001), size=(3, 1))  # Add Gaussian noise
-                    N[:, [t]] = N[:, [t-1]] + (W @ N[:, [t-1]] + OnRe * OnS[t-1] + OffRe * OffS[t-1]) * Nt + noise
+                    #noise = torch.normal(0, np.sqrt(0.001), size=(3, 1))  # Add Gaussian noise
+                    N[:, [t]] = N[:, [t-1]] + (W @ N[:, [t-1]] + OnRe * OnS[t-1] + OffRe * OffS[t-1]) * Nt
                     pbar.update(1)
                     
                 # Calculate correlation with PCs (row-wise) using differentiable correlation in PyTorch
-                corre = []
-                for i in range(3): corre.append(pearson_corr(N[i][self.opti_start:self.opti_end], 
-                                                             torch.tensor(self.PCs[i][self.opti_start:self.opti_end], 
-                                                                          dtype=torch.float32)))
-                average_corre = torch.mean(torch.stack(corre))
-                if iter % 50 == 0: print(average_corre)
+                target = torch.tensor(self.PCs[:3, self.opti_start:self.opti_end], dtype=torch.float32)
+                predicted = N[:, self.opti_start:self.opti_end]
                 
-                # Convert to a loss (we want to maximize correlation, so minimize -average_corre)
-                loss = -average_corre
+                # Compute MSE loss
+                loss = torch.mean((predicted - target) ** 2)
+                self.full_loss.append([iter, loss.item()])
+                if iter % 50 == 0: print('Iter ' + str(iter), loss.item())
 
                 # Backpropagate
                 loss.backward()
                 optimizer.step()  # Update parameters
-                #W = constrain_W_columns(W)
+                scheduler.step(loss) # Update learning rate based on loss
 
                 # Keep track of the maximum correlation and best N
-                if average_corre.item() > max_corre:
-                    max_corre = average_corre.item()
-                    self.opti_corre.append([iter, max_corre])
+                if iter == 0 or loss.item() < min_loss:
+                    min_loss = loss.item()
+                    self.opti_loss.append([iter, min_loss])
                     self.W = W.detach().numpy()
                     self.OnRe = OnRe.detach().numpy()
                     self.OffRe = OffRe.detach().numpy()
@@ -574,25 +562,42 @@ class DynamicalSystem_Complex:
                     self.delay_on_coef = delay_on_coef.detach().numpy()
                     self.delay_off_coef = delay_off_coef.detach().numpy()
 
+                '''
                 # Check for convergence (if correlation change is very small)
-                if len(self.opti_corre) > 3 and abs(self.opti_corre[-1][1] - self.opti_corre[-2][1]) < 5e-5:
+                if len(self.opti_loss) > 3 and abs(self.opti_loss[-1][1] - self.opti_loss[-2][1]) < 1e-3:
                     print("Convergence reached.")
                     break
+                '''
+                
+                if abs(loss.item() - best_loss) < min_delta:
+                    patience_counter += 1
+                    if patience_counter >= patience:
+                        print(f"Converged: Loss hasn't improved by {min_delta} for {patience} iterations")
+                        break
+                else:
+                    patience_counter = 0
+                    best_loss = min(best_loss, loss.item())
             
         
-        self.opti_corre = np.array(self.opti_corre)
-        
-        print("\n")
+        self.opti_loss = np.array(self.opti_loss)
+        self.full_loss = np.array(self.full_loss)
+
         print('----------------Iter ' + str(iter) + '----------------')
         print('Integration for On-response = ' + str(self.tau_I_on * self.tau_I_on_coef) + 'ms')
         print('Adaptation for On-response = ' + str(self.tau_A_on * self.tau_A_on_coef) + 'ms')
         print('Delay for On-response = ' + str(self.delay_on * self.delay_on_coef) + 'ms')
-        print("\n")
+        print("")
         print('Integration for Off-response = ' + str(self.tau_I_off * self.tau_I_off_coef) + 'ms')
         print('Adaptation for Off-response = ' + str(self.tau_A_off * self.tau_A_off_coef) + 'ms')
         print('Delay for Off-response = ' + str(self.delay_off * self.delay_off_coef) + 'ms')
 
     def Run(self): 
+        def Normalize():
+            for i in range(3):
+                self.N[i] = (self.N[i]-np.mean(self.N[i][:100]))
+                self.N[i] = self.N[i] / np.max(abs(self.N[i]))
+                if self.Flip(self.N[i]): self.N[i] *= -1
+            
         self.OnS = self.Get_Input(self.gap_idx, self.tau_I_on * self.tau_I_on_coef, self.tau_A_on* self.tau_A_on_coef, round(self.delay_on * self.delay_on_coef), invert = False)
         self.OffS = self.Get_Input(self.gap_idx, self.tau_I_off * self.tau_I_off_coef, self.tau_A_off * self.tau_A_off_coef, round(self.delay_off * self.delay_off_coef), invert = True)
         
@@ -601,11 +606,9 @@ class DynamicalSystem_Complex:
             noise = np.random.normal(0, np.sqrt(0.001), (3, 1))
             self.N[:,[t]] = self.N[:,[t-1]] +(self.W@self.N[:,[t-1]] + self.OnRe*self.OnS[t-1] + self.OffRe*self.OffS[t-1])*self.Nt + noise
 
-        # Normalize
-        for i in range(3):
-            self.N[i] = (self.N[i]-np.mean(self.N[i][:100]))
-            self.N[i] = self.N[i] / np.max(abs(self.N[i]))
+        #Normalize()
+        
+        for i in range(3): 
             if self.Flip(self.N[i]): self.N[i] *= -1
         
         self.x, self.y, self.z = self.N[0], self.N[1], self.N[2]
-        

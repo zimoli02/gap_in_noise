@@ -153,12 +153,16 @@ def Display_Group(response_per_gap, pc_corre, pca_score, trajectory_3d, travel_d
                 Model = analysis.Model(Group, gap_idx = 8, input = Input)
                 Model.model.opti_start, Model.model.opti_end = 0, 350 + Model.gap_dur
                 Model.model.Optimize_Params()
+                Model.Cross_Validation()
+                
+                Model.model.gap_idx = 9
+                Model.model.Set_Gap_Dependent_Params()
                 Model.model.Run()
                 fig1, fig2, fig3, fig4, fig5 = Model.Draw()
                 fig1.savefig(file_path_sub+'Model/' + Input + '/Trajectory.png')
                 fig2.savefig(file_path_sub+'Model/' + Input + '/Trajectory_3d.png')
                 fig3.savefig(file_path_sub+'Model/' + Input + '/Params.png')
-                fig4.savefig(file_path_sub+'Model/' + Input + '/Corre_with_Iter.png')
+                fig4.savefig(file_path_sub+'Model/' + Input + '/Loss_with_Iter.png')
                 fig5.savefig(file_path_sub+'Model/' + Input + '/Gap_Duration_Recognition.png')
 
 def main():
