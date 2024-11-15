@@ -15,11 +15,11 @@ import warnings
 warnings.filterwarnings("ignore", message="Ignoring cached namespace 'hdmf-common'")
 warnings.filterwarnings("ignore", message="Ignoring cached namespace 'hdmf-experimental'")
 
-import analysis
+from . import analysis
 
 basepath = '/Volumes/Zimo/Auditory/Data/'
 recordingpath = '/Volumes/Research/GapInNoise/Data/Recordings/'
-mouse = pd.read_csv('//Volumes/Research/GapInNoise/Code/Mouse_Tones.csv')
+mouse = pd.read_csv('/Volumes/Research/GapInNoise/Code/Mouse_Tones.csv')
 
 
 class Group:
@@ -133,7 +133,6 @@ class Group:
             periods_pca.append(periods_pca_per_gap)
         return np.array(periods_pca)
             
-
 class Recording:
     def __init__(self, rec_name):
         self.rec_name = rec_name

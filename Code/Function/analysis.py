@@ -11,7 +11,7 @@ from scipy.ndimage import gaussian_filter1d
 from scipy.optimize import curve_fit
 from scipy.linalg import svd, orth
 
-import dynamicalsystem as ds
+from . import dynamicalsystem as ds
 
 sigma = 3  # smoothing amount
 

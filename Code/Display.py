@@ -7,19 +7,31 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
+fs = 10
+custom_params = {
+    "font.size": fs,
+    "axes.spines.right": False,
+    "axes.spines.top": False,
+    "legend.frameon": False,
+}
+sns.set_theme(style="ticks", rc=custom_params)
+
+import Function.data as data
+import Function.analysis as analysis 
+import Function.plot as plot
+
 import sys
 from pathlib import Path
-current_script_path = Path(__file__).resolve()
-
-functions_dir = current_script_path.parents[0] / 'Function'
-sys.path.insert(0, str(functions_dir))
-import plot 
-import analysis
+root_dir = Path(__file__).parent.parent
+sys.path.append(str(root_dir))
+sys.modules['data'] = sys.modules['Function.data']
+sys.modules['analysis'] = sys.modules['Function.analysis']
 
 basepath = '/Volumes/Zimo/Auditory/Data/'
 gpfapath = '/Volumes/Research/GapInNoise/Data/GPFA/'
 grouppath = '/Volumes/Research/GapInNoise/Data/Groups/'
 recordingpath = '/Volumes/Research/GapInNoise/Data/Recordings/'
+modelpath = '/Volumes/Research/GapInNoise/Data/TrainedModel/'
 
 
 def create_gif(input_folder, output_file, duration=500):
@@ -66,6 +78,7 @@ def Display_Group_Summary(unit_type, pc_corre, pca_variance, distance, angle, tr
 def Display_Group(response_per_gap, pc_corre, pca_score, trajectory_3d, travel_degree, trajectory_3d_by_event, trajectory_event, distance, angle, principal_angle, onoff, on_gap_dependent, return_background, model, file_path):
     for geno_type in ['WT', 'Df1']:
         for hearing_type in ['NonHL', 'HL']:
+            if geno_type == 'WT' and hearing_type == 'NonHL': continue
             file_path_sub = file_path + geno_type + '_' + hearing_type + '/'
 
             with open(grouppath + geno_type + '_' + hearing_type + '.pickle', 'rb') as file:
@@ -149,12 +162,19 @@ def Display_Group(response_per_gap, pc_corre, pca_score, trajectory_3d, travel_d
                 fig2.savefig(file_path_sub + 'OnOff/Noise_Return_Silence_Diff_Subspace.png')
                 
             if model:
-                Input = 'complex'
-                Model = analysis.Model(Group, gap_idx = 8, input = Input)
-                Model.model.opti_start, Model.model.opti_end = 0, 350 + Model.gap_dur
-                Model.model.Optimize_Params()
-                Model.Cross_Validation()
+                Update = False 
                 
+                if Update:
+                    Input = 'complex'
+                    Model = analysis.Model(Group, gap_idx = 8, input = Input)
+                    Model.model.Optimize_Params()
+                    Model.Cross_Validation()
+                    with open(modelpath + Group.geno_type + '_' + Group.hearing_type + '.pickle', 'wb') as file:
+                        pickle.dump(Model, file)
+                else:
+                    with open(modelpath + geno_type + '_' + hearing_type + '.pickle', 'rb') as file:
+                        Model = pickle.load(file)
+                        
                 Model.model.gap_idx = 9
                 Model.model.Set_Gap_Dependent_Params()
                 Model.model.Run()

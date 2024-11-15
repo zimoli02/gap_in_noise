@@ -259,8 +259,8 @@ class DynamicalSystem_Complex:
         self.OffRe = None 
         
         self.S_on, self.S_off = 60, 10
-        self.tau_I_on, self.tau_I_on_coef = 8, 1
-        self.tau_A_on, self.tau_A_on_coef = 10, 1
+        self.tau_I_on, self.tau_I_on_coef = 12, 1
+        self.tau_A_on, self.tau_A_on_coef = 6, 1
         self.tau_I_off, self.tau_I_off_coef = 2, 1
         self.tau_A_off, self.tau_A_off_coef = 20, 1
         self.delay_on, self.delay_on_coef = 5, 1
@@ -272,10 +272,9 @@ class DynamicalSystem_Complex:
         self.N = np.zeros((3, len(self.times)))
         
         self.opti_start, self.opti_end = 0, 1000
-        self.lr = 0.005
+        self.lr = 0.007
         self.opti_loss, self.full_loss = [], []
-        
-        
+            
     def Set_Gap_Dependent_Params(self):
         self.gap_dur = round(self.group.gaps[self.gap_idx]*1000)
         self.Get_PCs()
@@ -439,9 +438,9 @@ class DynamicalSystem_Complex:
             ## Timescale
             self.Nt = np.array(
                 [
-                    [0.14],
-                    [0.18],
-                    [0.06]
+                    [0.15],
+                    [0.40],
+                    [0.20]
                 ]
             ) 
             ## Connections
@@ -487,14 +486,14 @@ class DynamicalSystem_Complex:
 
         # Define the optimizer
         optimizer = torch.optim.Adam([
-            W, OnRe, OffRe, Nt,
+            W, OnRe, OffRe,
             tau_I_on_coef, tau_A_on_coef, tau_I_off_coef, tau_A_off_coef, delay_on_coef, delay_off_coef
-        ], lr=self.lr)
+        ], lr=self.lr) #exclude Nt
         scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5, verbose=True)
 
         
         # Number of iterations
-        num_iterations = 500
+        num_iterations = 1000
         
         # Set threshold for minimum change in loss
         patience = 5  # Number of iterations to wait
@@ -608,7 +607,5 @@ class DynamicalSystem_Complex:
 
         #Normalize()
         
-        for i in range(3): 
-            if self.Flip(self.N[i]): self.N[i] *= -1
         
         self.x, self.y, self.z = self.N[0], self.N[1], self.N[2]

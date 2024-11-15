@@ -9,7 +9,7 @@ from scipy.signal import savgol_filter
 from scipy.interpolate import UnivariateSpline
 from statsmodels.nonparametric.smoothers_lowess import lowess
 
-import analysis 
+from . import analysis 
 
 fs = 10
 custom_params = {
