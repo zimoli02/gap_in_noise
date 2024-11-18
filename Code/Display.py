@@ -76,9 +76,8 @@ def Display_Group_Summary(unit_type, pc_corre, pca_variance, distance, angle, tr
         GroupSummary.Plot_Travel_Distance_First_Step(PC = [0,1,3]).savefig(file_path + 'TravelSummary.png')
         
 def Display_Group(response_per_gap, pc_corre, pca_score, trajectory_3d, travel_degree, trajectory_3d_by_event, trajectory_event, distance, angle, principal_angle, onoff, on_gap_dependent, return_background, model, file_path):
-    for geno_type in ['WT', 'Df1']:
-        for hearing_type in ['NonHL', 'HL']:
-            if geno_type == 'WT' and hearing_type == 'NonHL': continue
+    for geno_type in ['WT']:
+        for hearing_type in ['NonHL']:
             file_path_sub = file_path + geno_type + '_' + hearing_type + '/'
 
             with open(grouppath + geno_type + '_' + hearing_type + '.pickle', 'rb') as file:
@@ -162,28 +161,35 @@ def Display_Group(response_per_gap, pc_corre, pca_score, trajectory_3d, travel_d
                 fig2.savefig(file_path_sub + 'OnOff/Noise_Return_Silence_Diff_Subspace.png')
                 
             if model:
-                Update = False 
+                Update = True 
                 
                 if Update:
-                    Input = 'complex'
-                    Model = analysis.Model(Group, gap_idx = 8, input = Input)
-                    Model.model.Optimize_Params()
-                    Model.Cross_Validation()
+                    Model = analysis.Model(Group)
+                    Model.model.W = np.array([
+                        [-0.1, 0.05, -0.10],
+                        [-0.05, -0.15, 0.05],
+                        [-0.25, -0.05, -0.95]]) 
+                    Model.model.OnRe = np.array([[1.3], [0.9], [2.4]])
+                    Model.model.OffRe = np.array([[0.25], [-0.1], [1.4]])
+                    Model.model.tau_I_on_coef = 1.5
+                    Model.model.tau_A_on_coef = 0.95
+                    Model.model.tau_A_off_coef = 1.3
+                    Model.Train(cross_validate = True)
                     with open(modelpath + Group.geno_type + '_' + Group.hearing_type + '.pickle', 'wb') as file:
                         pickle.dump(Model, file)
                 else:
                     with open(modelpath + geno_type + '_' + hearing_type + '.pickle', 'rb') as file:
                         Model = pickle.load(file)
-                        
-                Model.model.gap_idx = 9
-                Model.model.Set_Gap_Dependent_Params()
-                Model.model.Run()
-                fig1, fig2, fig3, fig4, fig5 = Model.Draw()
-                fig1.savefig(file_path_sub+'Model/' + Input + '/Trajectory.png')
-                fig2.savefig(file_path_sub+'Model/' + Input + '/Trajectory_3d.png')
-                fig3.savefig(file_path_sub+'Model/' + Input + '/Params.png')
-                fig4.savefig(file_path_sub+'Model/' + Input + '/Loss_with_Iter.png')
-                fig5.savefig(file_path_sub+'Model/' + Input + '/Gap_Duration_Recognition.png')
+                    #Model.model.Set_Params_Median()
+                    Model.model.Set_Params_of_Least_Loss()
+                
+                Plot_Model = plot.System(Group, Model)
+                fig1, fig2, fig3, fig4, fig5 = Plot_Model.Draw_Model(gap_idx = 9)
+                fig1.savefig(file_path_sub+'Model/Trajectory.png')
+                fig2.savefig(file_path_sub+'Model/Trajectory_3d.png')
+                fig3.savefig(file_path_sub+'Model/Params.png')
+                fig4.savefig(file_path_sub+'Model/Loss_with_Iter.png')
+                fig5.savefig(file_path_sub+'Model/Gap_Duration_Recognition.png')
 
 def main():
     
