@@ -10,8 +10,19 @@ from scipy.stats import sem
 from scipy.ndimage import gaussian_filter1d
 from scipy.optimize import curve_fit
 from scipy.linalg import svd, orth
+from  sklearn.decomposition import PCA as SKPCA
 
 from . import dynamicalsystem as ds
+
+import sys
+from pathlib import Path
+current_script_path = Path(__file__).resolve()
+ssm_dir = current_script_path.parents[2] / 'SSM'
+sys.path.insert(0, str(ssm_dir))
+import ssm as ssm
+
+import warnings
+warnings.filterwarnings('ignore', category=FutureWarning)
 
 sigma = 3  # smoothing amount
 
@@ -33,6 +44,48 @@ def calculate_vector_angle(vector1, vector2):
     angle_degrees = np.degrees(angle)
 
     return angle_degrees   
+
+
+def angle_between_planes(plane1, plane2):
+    def fit_plane(points):
+        """Find best-fit plane through points using PCA"""
+        # Center the points
+        center = np.mean(points, axis=0)
+        centered_points = points - center
+        
+        # Get plane normal using PCA
+        pca = SKPCA(n_components=3)
+        pca.fit(centered_points)
+        
+        # The third component (least variance) is the plane normal
+        normal = pca.components_[2]
+        return center, normal
+    
+    def get_plane_equation(center, normal):
+        """Get normalized plane equation coefficients (ax + by + cz + d = 0)"""
+        a, b, c = normal
+        d = -np.dot(normal, center)
+        norm = np.sqrt(a*a + b*b + c*c)
+        return a/norm, b/norm, c/norm, d/norm
+    
+    center, normal = fit_plane(plane1)
+    coefs1 = get_plane_equation(center, normal)
+    
+    center, normal = fit_plane(plane2)
+    coefs2 = get_plane_equation(center, normal)
+    
+    a1, b1, c1, _ = coefs1
+    a2, b2, c2, _ = coefs2
+    
+    # Angle between plane normals
+    cos_theta = abs(a1*a2 + b1*b2 + c1*c2)
+    # Clip to handle numerical errors
+    cos_theta = np.clip(cos_theta, -1.0, 1.0)
+    angle = np.arccos(cos_theta) * 180 / np.pi
+    
+    # Return smaller angle between planes
+    return min(angle, 180 - angle)
+    
 
 def calculate_principal_angles(A, B):
     QA = orth(A)
@@ -70,8 +123,7 @@ class PCA:
     def Separate_Multiple_Gaps(self):
         valid_PC = min(5, self.score.shape[0])
         self.score_per_gap = self.score[:valid_PC].reshape(valid_PC, self.data.shape[1], self.data.shape[2])
-        
-        
+           
 class Projection:
     def __init__(self, data, subspace):
         self.data = data 
@@ -169,3 +221,34 @@ class Model:
             noise = np.random.normal(0, np.sqrt(0.001), (3, 1))
             self.N[:,[t]] = self.N[:,[t-1]] +(self.model.W@self.N[:,[t-1]] + self.model.OnRe*self.OnS[t-1] + self.model.OffRe*self.OffS[t-1])*self.model.Nt + noise
             
+class HMM:
+    def __init__(self, N, state = 3):
+        self.observation = N
+        self.n_state = state
+        self.model = None
+        self.parameters = None
+        self.states = None
+        self.TransM = None
+        self.loglikelihood = None
+        self.kl_divergence = None
+        self.ConnecM = None
+        
+        
+    def Fit_Model(self):
+        # Fit Models
+        fitting_input = self.observation.T
+        self.model = ssm.HMM(self.n_state, len(fitting_input[0]), observations="gaussian")
+        lls = self.model.fit(fitting_input, method="em", num_iters=50, init_method="kmeans")
+        
+        self.parameters = self.model.observations.params
+        #np.save('../../SocialData/HMMStates/Params_' + self.mouse.type + "_" + self.mouse.mouse + '.npy', self.parameters)
+        
+        # Sort and Save Transition Matrix
+        self.TransM = self.model.transitions.transition_matrix
+        #np.save('../../SocialData/HMMStates/TransM_' + self.mouse.type + "_" + self.mouse.mouse + '.npy', self.TransM)
+        
+        # Infer and Save states
+        obs = self.observation.T
+        self.loglikelihood = self.model.log_likelihood(obs)
+        self.states = self.model.most_likely_states(obs)
+        #np.save('../../SocialData/HMMStates/States_' + self.mouse.type + "_" + self.mouse.mouse + ".npy", self.states)

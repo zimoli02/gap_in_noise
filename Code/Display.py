@@ -49,7 +49,7 @@ def create_gif(input_folder, output_file, duration=500):
 def Display_Group_Summary(unit_type, pc_corre, pca_variance, distance, angle, travel, file_path):
     Groups = []
     for geno_type in ['WT', 'Df1']:
-        for hearing_type in ['HL', 'NonHL']:
+        for hearing_type in ['NonHL', 'HL']:
             with open(grouppath + geno_type + '_' + hearing_type + '.pickle', 'rb') as file:
                 Group = pickle.load(file)
             print(Group.geno_type, Group.hearing_type)
@@ -75,9 +75,9 @@ def Display_Group_Summary(unit_type, pc_corre, pca_variance, distance, angle, tr
     if travel:
         GroupSummary.Plot_Travel_Distance_First_Step(PC = [0,1,3]).savefig(file_path + 'TravelSummary.png')
         
-def Display_Group(response_per_gap, pc_corre, pca_score, trajectory_3d, travel_degree, trajectory_3d_by_event, trajectory_event, distance, angle, principal_angle, onoff, on_gap_dependent, return_background, model, file_path):
-    for geno_type in ['WT']:
-        for hearing_type in ['NonHL']:
+def Display_Group(response_per_gap, pc_corre, pca_score, trajectory_3d, travel_degree, trajectory_3d_by_event, trajectory_event, distance, angle, principal_angle, onoff, on_gap_dependent, decoder, model, file_path):
+    for geno_type in ['WT', 'Df1']:
+        for hearing_type in ['NonHL', 'HL']:
             file_path_sub = file_path + geno_type + '_' + hearing_type + '/'
 
             with open(grouppath + geno_type + '_' + hearing_type + '.pickle', 'rb') as file:
@@ -155,25 +155,22 @@ def Display_Group(response_per_gap, pc_corre, pca_score, trajectory_3d, travel_d
                 fig3.savefig(file_path_sub + 'OnOff/Gap_Dependent_OnResp_Similarity.png')
             
             
-            if return_background:
+            if decoder:
                 fig1, fig2 = Plot_Decoder.Plot_Noise_Return_Silence()
                 fig1.savefig(file_path_sub + 'OnOff/Noise_Return_Silence.png')
                 fig2.savefig(file_path_sub + 'OnOff/Noise_Return_Silence_Diff_Subspace.png')
                 
+                fig = Plot_Decoder.Plot_Binary_Decoder()
+                fig.savefig(file_path_sub + 'Decoder/Binary.png')
+                
+                fig = Plot_Decoder.Plot_HMM_Decoder()
+                fig.savefig(file_path_sub + 'Decoder/HMM.png')
+                
             if model:
-                Update = True 
+                Update = False 
                 
                 if Update:
                     Model = analysis.Model(Group)
-                    Model.model.W = np.array([
-                        [-0.1, 0.05, -0.10],
-                        [-0.05, -0.15, 0.05],
-                        [-0.25, -0.05, -0.95]]) 
-                    Model.model.OnRe = np.array([[1.3], [0.9], [2.4]])
-                    Model.model.OffRe = np.array([[0.25], [-0.1], [1.4]])
-                    Model.model.tau_I_on_coef = 1.5
-                    Model.model.tau_A_on_coef = 0.95
-                    Model.model.tau_A_off_coef = 1.3
                     Model.Train(cross_validate = True)
                     with open(modelpath + Group.geno_type + '_' + Group.hearing_type + '.pickle', 'wb') as file:
                         pickle.dump(Model, file)
@@ -190,6 +187,23 @@ def Display_Group(response_per_gap, pc_corre, pca_score, trajectory_3d, travel_d
                 fig3.savefig(file_path_sub+'Model/Params.png')
                 fig4.savefig(file_path_sub+'Model/Loss_with_Iter.png')
                 fig5.savefig(file_path_sub+'Model/Gap_Duration_Recognition.png')
+                
+                fig = Plot_Model.Draw_Gap_Threshold_Simulation()
+                fig.savefig(file_path_sub+'Model/Gap_Threshold_Simulation.png')
+                
+                S = np.zeros(2000) + 10
+                for t in range(100, 350): S[t] = 60
+                for t in range(500, 750): S[t] = 60
+                for t in range(800, 850): S[t] = 60
+                for t in range(870, 920): S[t] = 60
+                for t in range(940, 990): S[t] = 60
+                for t in range(1250, 1550): S[t] = 60
+                
+                fig1, fig2, fig3 = Plot_Model.Draw_Simulation(S)
+                fig1.savefig(file_path_sub+'Model/Simulated_Trajectory.png')
+                fig2.savefig(file_path_sub+'Model/Simulated_Trajectory_3d.png')
+                fig3.savefig(file_path_sub+'Model/Simulated_Gap_Decoding.png')
+                
 
 def main():
     
@@ -207,7 +221,7 @@ def main():
                   principal_angle = False,
                   onoff = False,
                   on_gap_dependent = False, 
-                  return_background = False,
+                  decoder = False,
                   model = True,
                   file_path = '../Images/')
     

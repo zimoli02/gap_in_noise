@@ -9,6 +9,11 @@ from scipy.signal import savgol_filter
 from scipy.interpolate import UnivariateSpline
 from statsmodels.nonparametric.smoothers_lowess import lowess
 
+from sklearn.linear_model import LinearRegression
+from sklearn.cluster import KMeans
+import warnings
+warnings.filterwarnings('ignore', category=FutureWarning)
+
 from . import analysis 
 
 fs = 10
@@ -415,38 +420,23 @@ class Latent:
         return fig
 
     def Calculate_Angle(self, PC):
-        def find_vector(start_point, x, y, z):
-            if len(x) < 1: return start_point
-            x_, y_, z_ = x - start_point[0], y-start_point[1], z-start_point[2]
-            mod = np.sqrt(x_**2 + y_**2 + z_**2)
-            idx = np.argsort(mod)[::-1][0]
-            end_point = np.array([x[idx], y[idx], z[idx]])
-            return end_point - start_point
-
         angle_noise, angle_gap, angle_fix_gap = [], [], []
-        for gap_idx, gap_type in enumerate(self.gaps):
+        for gap_idx in range(3, 10):
             # apply some smoothing to the trajectories
             x = gaussian_filter1d(self.score_per_gap[PC[0], gap_idx], sigma=sigma)
             y = gaussian_filter1d(self.score_per_gap[PC[1], gap_idx], sigma=sigma)
             z = gaussian_filter1d(self.score_per_gap[PC[2], gap_idx], sigma=sigma)
 
-            gap_dur = round(gap_type*1000+350)
+            gap_dur = round(self.gaps[gap_idx]*1000+350)
 
-            start_point = np.array([x[:100].mean(), y[:100].mean(), z[:100].mean()])
-            end_point = np.array([x[300:350].mean(), y[300:350].mean(), z[300:350].mean()])
-            mid_point = (start_point+end_point)/2
+            N1 = np.array([x[100:200], y[100:200], z[100:200]]).T 
+            gap = np.array([x[350:min(450, gap_dur)], y[350:min(450, gap_dur)], z[350:min(450, gap_dur)]]).T 
+            N2 = np.array([x[gap_dur:gap_dur+100], y[gap_dur:gap_dur+100], z[gap_dur:gap_dur+100]]).T
+            post_N2 = np.array([x[gap_dur+100:], y[gap_dur+100:], z[gap_dur+100:]]).T 
 
-            pre_gap = find_vector(mid_point, x[100:350], y[100:350], z[100:350])
-            gap = find_vector(
-                mid_point, x[350:gap_dur], y[350:gap_dur], z[350:gap_dur])
-            post_gap = find_vector(
-                mid_point, x[gap_dur:gap_dur+100], y[gap_dur:gap_dur+100], z[gap_dur:gap_dur+100])
-            post_noise = find_vector(
-                mid_point, x[gap_dur+100:], y[gap_dur+100:], z[gap_dur+100:])
-
-            angle_noise.append(analysis.calculate_vector_angle(pre_gap, post_gap))
-            angle_gap.append(analysis.calculate_vector_angle(pre_gap, gap))
-            angle_fix_gap.append(analysis.calculate_vector_angle(pre_gap, post_noise))
+            angle_noise.append(analysis.angle_between_planes(N1, N2))
+            angle_gap.append(analysis.angle_between_planes(N1, gap))
+            angle_fix_gap.append(analysis.angle_between_planes(N1, post_N2))
 
         self.angle_noise = angle_noise
         self.angle_gap = angle_gap
@@ -455,19 +445,19 @@ class Latent:
     def Plot_Angle(self, PC):
         self.Calculate_Angle(PC)
         fig, axs = plt.subplots(1, 1, figsize=(5, 5), sharex=True, layout='constrained')
-        axs.plot(np.arange(9), self.angle_gap[1:],
+        axs.plot(np.arange(7), self.angle_gap,
                  color='grey', ls='-', label='Gap')
-        axs.plot(np.arange(9), self.angle_fix_gap[1:],
-                 color='black', ls=':', label='Silence')
-        axs.plot(np.arange(9), self.angle_noise[1:],
-                 color='orange', ls='--', label='Noise')
+        axs.plot(np.arange(7), self.angle_fix_gap,
+                 color='black', ls=':', label='Post-N2 Silence')
+        axs.plot(np.arange(7), self.angle_noise,
+                 color='orange', ls='--', label='Noise2')
 
         axs.legend(loc='lower left', fontsize=14)
         axs.set_xlabel('Gap (ms)', fontsize=20)
-        axs.set_xticks([0, 1, 2, 3, 4, 5, 6, 7, 8], labels=[
-                       1, '', 4, '', 16, '', 64, '', 256], fontsize=16)
+        axs.set_xticks([0, 1, 2, 3, 4, 5, 6], labels=[
+                       4, '', 16, '', 64, '', 256], fontsize=16)
         axs.set_ylabel('Angle Degree', fontsize=20)
-        axs.set_ylim((0,120))
+        axs.set_ylim((0,90))
         return fig
 
     def Plot_Step_Degree(self, PC):
@@ -591,21 +581,21 @@ class Latent:
             fig2, axs = plt.subplots(3, 2, figsize = (16, 18))
             for i in range(3):
                 if Flip(onset_pca.score[i], 0, 25): onset_pca.score[i] *= -1
-                if Flip(offset_pca.score[i], 0, 50): offset_pca.score[i] *= -1
+                if Flip(offset_pca.score[i], 25, 50): offset_pca.score[i] *= -1
                 if Flip(onset_exclude_noise_pca.score[i], 0, 25): onset_exclude_noise_pca.score[i] *= -1
-                if Flip(offset_exclude_noise_pca.score[i], 0, 50): offset_exclude_noise_pca.score[i] *= -1
+                if Flip(offset_exclude_noise_pca.score[i], 25, 50): offset_exclude_noise_pca.score[i] *= -1
                 
-                axs[i,0].plot(onset_pca.score[i], color = 'black', label = 'Original')
-                axs[i,1].plot(offset_pca.score[i], color = 'black', label = 'Original')
-                axs[i,0].plot(onset_exclude_noise_pca.score[i], color = 'red', label = 'Exclude Noise Resp')
-                axs[i,1].plot(offset_exclude_noise_pca.score[i], color = 'red', label = 'Exclude Noise Resp')
+                axs[i,0].plot(onset_pca.score[i], color = 'black', label = 'Original Resp.')
+                axs[i,1].plot(offset_pca.score[i], color = 'black', label = 'Original Resp.')
+                axs[i,0].plot(onset_exclude_noise_pca.score[i], color = 'red', label = 'Exclude Sust. Noise Resp.')
+                axs[i,1].plot(offset_exclude_noise_pca.score[i], color = 'red', label = 'Exclude Sust. Noise Resp.')
                 
                 axs[i,0].set_ylabel('PC #'+str(i+1), fontsize = 20)
                 for j in range(2):
                     axs[i,j].axhline(y = 0, linestyle = ':', color = 'grey')
                     axs[i,j].legend(fontsize = 16)
                 axs[i,0].set_xticks([0,50, 100],['0','50','100'])
-                axs[i,1].set_xticks([0,50, 100, 150],['0','50','100', '150'])
+                axs[i,1].set_xticks([0,50, 100],['0','50','100'])
             axs[0,0].set_title('On-Response', fontsize = 22)
             axs[0,1].set_title('Off-Response', fontsize = 22)
             axs[2,0].set_xlabel('Time (ms)', fontsize = 20)
@@ -719,7 +709,7 @@ class Latent:
             axs[3].set_ylabel('Gap-Excl-OnResp Subspace', fontsize = 16)
 
             sns.heatmap(Align_PC_Sign(gap_no_offset_pca.loading @ data)[:PCs], ax = axs[4], cmap = 'RdBu', cbar = False)  
-            axs[4].set_ylabel('Gap-Excl-OnResp Subspace', fontsize = 16)
+            axs[4].set_ylabel('Gap-Excl-OffResp Subspace', fontsize = 16)
 
             sns.heatmap([self.group.gaps_label[gap_idx]], ax=axs[5], cmap='Blues', vmin=0, vmax=1, cbar=False)
             for i in range(6):
@@ -852,8 +842,8 @@ class Latent:
                 sns.heatmap(Align_PC_Sign(onset_post_projection[:PCs,50:-150]), ax = right_upper_axes[count], cmap = 'RdBu', cbar = False)
                 sns.heatmap([self.group.gaps_label[gap_idx][50:-150]], ax=right_lower_axes[count], cmap='Blues', vmin=0, vmax=1, cbar=False)
             left_axes[0].set_title('Subspace Similarity', fontsize = 20)
-            mid_upper_axes[0].set_title('Projection to Pre-Gap Onset Subspace', fontsize = 20)
-            right_upper_axes[0].set_title('Projection to Post-Gap Onset Subspace', fontsize = 20)
+            mid_upper_axes[0].set_title('Projection to Noise1 Onset Subspace', fontsize = 20)
+            right_upper_axes[0].set_title('Projection to Noise2 Onset Subspace', fontsize = 20)
 
             # Remove ticks for cleaner look
             for axs in  mid_upper_axes + mid_lower_axes + right_upper_axes + right_lower_axes:
@@ -950,65 +940,56 @@ class Decoder:
         
         fig1, axs = plt.subplots(2, 5, figsize = (30, 12))
         axs = axs.flatten()
-        for i in range(1,10):
+        for i in range(10):
+            gap_dur = round(self.group.gaps[i]*1000)
+            gap_start, gap_end = 350, 350 + gap_dur 
+            pre_gap_start, pre_gap_end = 300, 351
+            post_gap_start, post_gap_end = 350 + gap_dur, 400 + gap_dur
+            if i == 0: 
+                gap_start, gap_end = 350 + gap_dur + 100, 1000
+                pre_gap_start, pre_gap_end = 400, 451
+                post_gap_start, post_gap_end = 900, 1000
+                
             baseline = np.mean(calculate_distance(i, start = 50, end = 100))
             
-            pre_distance = calculate_distance(i, start = 300, end = 351)
-            axs[i].scatter(np.arange(-len(pre_distance),0,1), pre_distance, color = 'lightgreen', alpha = 0.7)
-            smoothed_x, smoothe_y = smooth_scatter(np.arange(-len(pre_distance),0,1), pre_distance)
-            axs[i].plot(smoothed_x, smoothe_y, linewidth = 4, color = 'grey')
+            pre_distance = calculate_distance(i, start = pre_gap_start, end = pre_gap_end)
+            axs[i].scatter(np.arange(-len(pre_distance),0,1), pre_distance, color = 'green', alpha = 0.3)
+            smoothed_x, smoothed_y = smooth_scatter(np.arange(-len(pre_distance),0,1), pre_distance)
+            axs[i].plot(smoothed_x, smoothed_y, linewidth = 4, color = 'darkgreen')
+  
+            distance = calculate_distance(i, start = gap_start, end = gap_end)
+            axs[i].scatter(np.arange(len(distance)), distance, color = 'blue', alpha = 0.3)
+            smoothed_x, smoothed_y = smooth_scatter_peak(np.arange(len(distance)), distance)
+            axs[i].plot(smoothed_x, smoothed_y, linewidth = 4, color = 'darkblue')
             
-            gap_dur = round(self.group.gaps[i]*1000)            
-            distance = calculate_distance(i, start = 350, end = 350 + gap_dur)
-            axs[i].scatter(np.arange(gap_dur), distance, color = 'lightblue', alpha = 0.7)
+            time = np.argsort(smoothed_y)[::-1][0]
+            axs[i].axvline(x=time, linestyle = '--', color = 'red', label = 'Peak Time: ' + str(time) + 'ms')
             
-            smoothed_x, smoothe_y = smooth_scatter_peak(np.arange(gap_dur), distance)
-            axs[i].plot(smoothed_x, smoothe_y, linewidth = 4, color = 'black')
-            
-            time = np.argsort(smoothe_y)[::-1][0]
-            axs[i].scatter([],[],color = 'red', label = 'Peak Time: ' + str(time) + 'ms')
-            axs[i].axvline(x=time, linestyle = '--', color = 'red')
-            
+            for t in range(len(smoothed_y)):
+                if abs(smoothed_y[t] - baseline) < 1e-2: 
+                    axs[i].plot([t,t], [-0.1, smoothed_y[t]], linestyle = '--', color = 'purple', label = 'Decay Time: ' + str(t) + 'ms')
+                    break 
+                
+            post_distance = calculate_distance(i, start = post_gap_start, end = post_gap_end)
+            axs[i].scatter(len(distance) + np.arange(len(post_distance)), post_distance, color = 'orange', alpha = 0.3)
+            smoothed_x, smoothed_y = smooth_scatter_peak(len(distance) + np.arange(len(post_distance)), post_distance)
+            axs[i].plot(smoothed_x, smoothed_y, linewidth = 4, color = 'brown')
+
             axs[i].legend(loc = 'upper right', fontsize = 20)
             axs[i].axhline(y=baseline, linestyle = '--', color = 'grey')
             
-            axs[i].set_xlim((-50, 260))
-            #axs[i].set_ylim((-0.1, 2.55))
-            axs[i].set_xticks(np.arange(-50, 255, 50), ['-50', '0', '50', '100', '150', '200', '250'], fontsize = 20)
-            #axs[i].set_yticks(np.arange(0, 2.6, 0.5), ['0', '0.5','1.0','1.5','2.0','2.5'], fontsize = 20)
+            if i > 0: 
+                axs[i].set_xlim((-50, 300))
+                axs[i].set_xticks(np.arange(-50, 305, 50), ['-50', '0', '50', '100', '150', '200', '250','300'], fontsize = 20)
+            else: 
+                axs[i].set_xlim((-50, 550))
+                axs[i].set_xticks(np.arange(0, 505, 100), ['0', '100', '200', '300', '400', '500'], fontsize = 20)
+            axs[i].set_ylim((0, 3))
             axs[i].set_xlabel('Time Since Gap Start (ms)', fontsize = 20)
             axs[i].set_ylabel('Distance to Noise On-Set', fontsize = 20)
             axs[i].set_title('Gap = ' + str(gap_dur) + 'ms', fontsize = 24)
-                    
-        for i in range(1):
-            baseline = np.mean(calculate_distance(i, start = 50, end = 100))
-            
-            pre_distance = calculate_distance(i, start = 300, end = 351)
-            axs[i].scatter(np.arange(-len(pre_distance),0,1), pre_distance, color = 'lightgreen', alpha = 0.7)
-            smoothed_x, smoothe_y = smooth_scatter(np.arange(-len(pre_distance),0,1), pre_distance)
-            axs[i].plot(smoothed_x, smoothe_y, linewidth = 4, color = 'grey')
-            
-            gap_dur = round(self.group.gaps[i]*1000)
-            distance = calculate_distance(i, start = 350 + gap_dur + 100, end = 1000)
-            axs[i].scatter(np.arange(len(distance)), distance, color = 'lightblue', alpha = 0.8)
-            
-            smoothed_x, smoothe_y = smooth_scatter_peak(np.arange(len(distance)), distance)
-            axs[i].plot(smoothed_x, smoothe_y, linewidth = 4, color = 'black')
-            
-            time = np.argsort(smoothe_y)[::-1][0]
-            axs[i].scatter([],[],color = 'red', label = 'Peak Time: ' + str(time) + 'ms')
-            axs[i].axvline(x=time, linestyle = '--', color = 'red')
-            
-            axs[i].legend(loc = 'upper right', fontsize = 20)
-            axs[i].axhline(y=baseline, linestyle = '--', color = 'grey')
-            
-            axs[i].set_xlim((-50, 260))
-            #axs[i].set_ylim((-0.1, 2.55))
-            axs[i].set_xticks(np.arange(0, 550, 100), ['0', '100', '200', '300', '400', '500'], fontsize = 20)
-            #axs[i].set_yticks(np.arange(0, 2.6, 0.5), ['0', '0.5','1.0','1.5','2.0','2.5'], fontsize = 20)
-            axs[i].set_xlabel('Time Since Post-Noise Off-Set (ms)', fontsize = 20)
-            axs[i].set_ylabel('Distance to Noise On-Set', fontsize = 20)
-            axs[i].set_title('Silence = 550 ms', fontsize = 24)
+        axs[0].set_xlabel('Time Since Post-Noise Off-Set (ms)', fontsize = 20)
+        axs[0].set_title('Silence = 550 ms', fontsize = 24)
         plt.tight_layout()
         
         onset_pca= analysis.PCA(self.group.pop_response_stand[:,0, 100:200], multiple_gaps=False)
@@ -1030,20 +1011,23 @@ class Decoder:
             baseline = np.mean(calculate_distance(i, start = 50, end = 100))
             
             pre_distance = calculate_distance(0, start = 300, end = 351)
-            axs[i].scatter(np.arange(-len(pre_distance),0,1), pre_distance, color = 'lightgreen', alpha = 0.7)
-            smoothed_x, smoothe_y = smooth_scatter(np.arange(-len(pre_distance),0,1), pre_distance)
-            axs[i].plot(smoothed_x, smoothe_y, linewidth = 4, color = 'grey')
+            axs[i].scatter(np.arange(-len(pre_distance),0,1), pre_distance, color = 'green', alpha = 0.3)
+            smoothed_x, smoothed_y = smooth_scatter(np.arange(-len(pre_distance),0,1), pre_distance)
+            axs[i].plot(smoothed_x, smoothed_y, linewidth = 4, color = 'darkgreen')
             
             distance = calculate_distance(0, start = 350 + gap_dur + 100, end = 1000)
-            axs[i].scatter(np.arange(len(distance)), distance, color = 'lightblue', alpha = 0.8)
+            axs[i].scatter(np.arange(len(distance)), distance, color = 'blue', alpha = 0.3)
+            smoothed_x, smoothed_y = smooth_scatter_peak(np.arange(len(distance)), distance)
+            axs[i].plot(smoothed_x, smoothed_y, linewidth = 4, color = 'darkblue')
             
-            smoothed_x, smoothe_y = smooth_scatter_peak(np.arange(len(distance)), distance)
-            axs[i].plot(smoothed_x, smoothe_y, linewidth = 4, color = 'black')
+            time = np.argsort(smoothed_y)[::-1][0]
+            axs[i].axvline(x=time, linestyle = '--', color = 'red', label = 'Peak Time: ' + str(time) + 'ms')
             
-            time = np.argsort(smoothe_y)[::-1][0]
-            axs[i].scatter([],[],color = 'red', label = 'Peak Time: ' + str(time) + 'ms')
-            axs[i].axvline(x=time, linestyle = '--', color = 'red')
-            
+            for t in range(len(smoothed_y)):
+                if abs(smoothed_y[t] - baseline) < 1e-2: 
+                    axs[i].plot([t,t], [-0.1, smoothed_y[t]], linestyle = '--', color = 'purple', label = 'Decay Time: ' + str(t) + 'ms')
+                    break 
+                
             axs[i].legend(loc = 'upper right', fontsize = 20)
             axs[i].axhline(y=baseline, linestyle = '--', color = 'grey')
             
@@ -1054,13 +1038,106 @@ class Decoder:
             axs[i].set_xlabel('Distance to Noise On-Set', fontsize = 20)
             axs[i].set_title(subspaces_label[i], fontsize = 24)
         plt.tight_layout()
+        self.group.pca = analysis.PCA(self.group.pop_response_stand)
 
         return fig1, fig2
+
+    def Get_PCs(self, gap_idx):
+        PC, PCs = [0,1,2],[]
+        for j in range(len(PC)):
+            scores = self.group.pca.score_per_gap[PC[j]]
+            score_per_gap = scores[gap_idx]
+            if Flip(score_per_gap): score_per_gap = score_per_gap * (-1)
+            PCs.append(score_per_gap)
+        return  np.array(PCs)
+        
+    def Plot_Binary_Decoder(self):
+        def Get_Prediction(gap_idx):
+            PCs = self.Get_PCs(gap_idx)
+            X = PCs.T  
+            y = self.group.gaps_label[gap_idx]
+            reg = LinearRegression()
+            reg.fit(X, y) 
+            s = reg.predict(X)
+            return s 
+        
+        def Threshold_Prediction(s):
+            kmeans = KMeans(n_clusters=3, random_state=42)
+            labels = kmeans.fit_predict(np.array(s[:700]).reshape(-1, 1))
+            centers = kmeans.cluster_centers_
+            sort_idx =np.argsort(centers.reshape(1,-1))[0]
+            boundary = (centers[sort_idx[0]][0] + centers[sort_idx[1]][0])/2
+            noises = np.zeros(len(s))
+            for t in range(len(s)):
+                if s[t] > boundary: noises[t] = 1 
+            return noises, boundary
+            
+        gaps = [3, 9]
+        fig, axs = plt.subplots(1, 2, figsize = (42, 6))
+        for i in range(len(gaps)):
+            gap_idx = gaps[i]
+            
+            s = Get_Prediction(gap_idx)
+            s_thresholded, boundary = Threshold_Prediction(s)
+            
+            axs[i].plot(s, label = 's(t)')
+            axs[i].plot(s_thresholded, color = 'red', label = 'Predicted Noise')
+            axs[i].axhline(y = boundary, color = 'grey', linestyle = ':')
+            ymin, ymax = axs[i].get_ylim()
+            mask = self.group.gaps_label[gap_idx] == 1
+            axs[i].fill_between(np.arange(len(self.group.gaps_label[gap_idx])), ymin, ymax, where=mask, color = 'dimgrey', alpha = 0.1, label = 'True Noise')
+            axs[i].legend(loc = 'upper right', fontsize = 18)
+            axs[i].set_title('Gap = ' + str(round(self.group.gaps[gap_idx]*1000)) + ' ms', fontsize = 24)
+        plt.tight_layout()
+        return fig
+        
+    def Plot_HMM_Decoder(self, n_state = 4):
+        gaps = [3, 9]
+        fig, axs = plt.subplots(4, 2, figsize = (42, 6))
+        for i in range(len(gaps)):
+            gap_idx = gaps[i]
+            
+            PCs = self.Get_PCs(gap_idx)
+            HMM = analysis.HMM(PCs, state = n_state)
+            HMM.Fit_Model()
+            
+            colors = ['black', 'red', 'blue']
+            colors_state = ['black', 'red', 'blue', 'green']
+            labels = ['PC 1', 'PC 2', 'PC 3']
+
+            axs[0,i].plot(np.arange(1000), PCs[0], color=colors[0])
+            axs[1,i].plot(np.arange(1000), PCs[1], color=colors[1])
+            axs[2,i].plot(np.arange(1000), PCs[2], color=colors[2])
+            
+            sort_idx = np.argsort(HMM.parameters[0].T[2])[::-1]
+            print(HMM.parameters[0].T[2][sort_idx])
+            for j in range(HMM.n_state):
+                state = sort_idx[j]
+                mask = HMM.states == state
+                axs[3,i].fill_between(np.arange(len(HMM.states)), 0, 0.4, where=mask, color=colors_state[j], alpha=0.7)
+
+            for j in range(3):
+                ymin, ymax = axs[j,i].get_ylim()
+                mask = self.group.gaps_label[gap_idx] == 1
+                axs[j,i].fill_between(np.arange(len(self.group.gaps_label[gap_idx])), ymin, ymax, where=mask, color = 'dimgrey', alpha = 0.1, label = 'True Noise')     
+                axs[j,i].set_xticks([0, 200, 400, 600, 800], labels=[0, 200, 400, 600, 800], fontsize=16)
+                if j < 3:
+                    axs[j,i].set_ylabel(labels[j], fontsize=24)
+                else: 
+                    axs[j,i].spines['left'].set_visible(False)
+                    axs[j,i].spines['bottom'].set_visible(False)
+            axs[3,i].set_xlabel('Time (ms)', fontsize=20)
+            axs[0,i].set_title('Gap = ' + str(round(self.group.gaps[gap_idx]*1000)) + ' ms', fontsize = 24)
+        plt.tight_layout()
+        return fig
+            
+            
 
 
 class System:
     def __init__(self, group, Model):
         self.group = group
+        self.Model = Model
         self.model = Model.model 
         
     def style_3d_ax(self, ax):
@@ -1128,9 +1205,9 @@ class System:
 
             for k in range(5):
                 axs[0].plot(x[starts[k]:ends[k]], y[starts[k]:ends[k]], z[starts[k]:ends[k]], 
-                                            ls=linestyle[k], c=linecolors[k], linewidth = 3, label = labels[k-1])
+                                            ls=linestyle[k], c=linecolors[k], linewidth = 3, label = labels[k])
                 axs[1].plot(PC1[starts[k]:ends[k]], PC2[starts[k]:ends[k]], PC3[starts[k]:ends[k]], 
-                                            ls=linestyle[k], c=linecolors[k], linewidth = 3, label = labels[k-1])
+                                            ls=linestyle[k], c=linecolors[k], linewidth = 3, label = labels[k])
 
             for i in range(2):
                 axs[i].legend(loc = 'upper center', fontsize = 14)
@@ -1172,12 +1249,12 @@ class System:
         
         def Draw_Loss_with_Iter():
             fig4, axs = plt.subplots(1,2,figsize = (14,6))
-            axs[0].plot(self.model.full_loss[:,0], self.model.full_loss[:,1])
-            axs[1].plot(self.model.opti_loss[:,0], self.model.opti_loss[:,1])
+            axs[0].plot(np.arange(len(self.model.train_loss)), self.model.train_loss)
+            axs[1].plot(np.arange(len(self.model.validate_loss)), self.model.validate_loss)
             axs[0].set_xlabel('Iter', fontsize = 16)
             axs[1].set_xlabel('Iter', fontsize = 16)
-            axs[0].set_ylabel('Loss', fontsize = 16)
-            axs[1].set_ylabel('Min_Loss', fontsize = 16)
+            axs[0].set_ylabel('Train Loss', fontsize = 16)
+            axs[1].set_ylabel('Validaiton Loss', fontsize = 16)
             plt.tight_layout()
             return fig4
         
@@ -1224,6 +1301,10 @@ class System:
 
                 time = np.argsort(distance)[::-1][0]
                 axs[i].axvline(x=time, linestyle = '--', color = 'red', label = 'Peak Time: ' + str(time) + 'ms')
+                for t in range(len(distance)):
+                    if abs(distance[t] - baseline) < 1e-2: 
+                        axs[i].plot([t,t], [-0.1, distance[t]], linestyle = '--', color = 'purple', label = 'Decay Time: ' + str(t) + 'ms')
+                        break 
                 
                 axs[i].legend(loc = 'upper right', fontsize = 20)
                 axs[i].axhline(y=baseline, linestyle = '--', color = 'grey')
@@ -1247,6 +1328,7 @@ class System:
         self.model.gap_idx = gap_idx
         self.model.Set_Gap_Dependent_Params()
         self.model.Run()
+        
         fig1 = Draw_Trace_2d() 
         fig2 = Draw_Trace_3d()
         fig3 = Draw_Parameters() 
@@ -1255,7 +1337,7 @@ class System:
         
         return fig1, fig2, fig3, fig4, fig5
         
-    def Draw_Simulation(self, SoundInput, OnS, OffS, N):
+    def Draw_Simulation(self, SoundInput):
         def get_periods(S):
             """Get start, end, colors arrays for plotting periods"""
             unique_vals = np.unique(S)
@@ -1320,14 +1402,102 @@ class System:
             axs.set_zlim(min(z), max(z))
             axs.set_title('Predicted Units', fontsize = 24)
             plt.tight_layout()   
-            plt.show() 
             return fig2
         
+        def Draw_Decode_Gap():
+            self.model.Set_Params_of_Least_Loss()
+            self.model.gap_idx = 9
+            self.model.Run()
+            X = self.model.PCs.T  
+            y = self.group.gaps_label[9]
+
+            # Fit linear regression
+            reg = LinearRegression()
+            reg.fit(X, y)
+            
+            s = reg.predict(self.Model.N.T)
+            
+            kmeans = KMeans(n_clusters=3, random_state=42)
+            labels = kmeans.fit_predict(np.array(s[:700]).reshape(-1, 1))
+            centers = kmeans.cluster_centers_
+            sort_idx =np.argsort(centers.reshape(1,-1))[0]
+            boundary = (centers[sort_idx[0]][0] + centers[sort_idx[1]][0])/2
+
+            noises = np.zeros(len(s))
+            for t in range(len(s)):
+                if s[t] > boundary: noises[t] = 1
+                
+            fig3, axs = plt.subplots(1, 1, figsize = (24, 4))
+            axs.plot(s)
+            axs.plot(noises, color = 'red')
+            axs.axhline(y = boundary, color = 'grey', linestyle = ':')
+            ymin, ymax = axs.get_ylim()
+            for t in range(1, len(starts), 2):
+                axs.fill_between([starts[t], ends[t]], ymin, ymax, color = 'dimgrey', alpha = 0.1)
+            return fig3
+                
         starts, ends, linecolors = get_periods(SoundInput)
+        self.Model.Run(SoundInput)
+        OnS, OffS = self.Model.OnS, self.Model.OffS
+        N = self.Model.N   
+        
         fig1 = Draw_Trace_2d()
         fig2 = Draw_Trace_3d()
+        fig3 = Draw_Decode_Gap()
         
-        return fig1, fig2
+        return fig1, fig2, fig3
+    
+    def Draw_Gap_Threshold_Simulation(self):
+        self.model.Set_Params_of_Least_Loss()
+        self.model.gap_idx = 9
+        self.model.Run()
+        X = self.model.PCs.T  
+        y = self.group.gaps_label[9]
+
+        # Fit linear regression
+        reg = LinearRegression()
+        reg.fit(X, y)
+        
+        gap_detections = np.zeros(64-1)
+        for gap_dur in range(1, 64):
+            S = np.zeros(1000) + 10
+            for t in range(100, 700): S[t] = self.model.S_on
+
+            for t in range(350, 350+gap_dur): S[t] = 10
+
+            self.Model.Run(SoundInput=S)
+
+            # Generate continuous state prediction
+            s = reg.predict(self.Model.N.T)
+            kmeans = KMeans(n_clusters=3, random_state=42)
+            labels = kmeans.fit_predict(np.array(s[:700]).reshape(-1, 1))
+            centers = kmeans.cluster_centers_
+            sort_idx =np.argsort(centers.reshape(1,-1))[0]
+            boundary = (centers[sort_idx[0]][0] + centers[sort_idx[1]][0])/2
+
+            noises = np.zeros(len(s))
+            for t in range(len(s)):
+                if s[t] > boundary: noises[t] = 1 
+                
+            start, end = 0, 0    
+            for t in range(350, 350+100):
+                if noises[t] == 0 and noises[t-1] == 1: start = t
+                if noises[t] == 1 and noises[t-1] == 0: 
+                    end = t
+                    break
+            gap_detections[gap_dur-1] = end-start 
+        
+        fig, axs = plt.subplots(1, 1, figsize = (8, 8))
+        axs.scatter(np.arange(1, 64, 1), gap_detections)
+        axs.plot(np.arange(1, 64, 1), np.arange(1, 64, 1), color = 'red', linestyle = ":")
+        axs.set_ylim(-1,65)
+        axs.set_xlabel('Simulated Gap Duration (ms)', fontsize = 20)
+        axs.set_ylabel('Predicted Gap Duration (ms)', fontsize = 20)
+        axs.tick_params(axis='both', labelsize = 16)
+        plt.tight_layout()
+
+        return fig
+    
     
 class Summary:
     def __init__(self, groups):
@@ -1362,7 +1532,7 @@ class Summary:
         plt.ylim([0,1])
         plt.ylabel('Percentage (%)',fontsize=16)
         plt.yticks([0,1],[0, 100], fontsize=14)
-        plt.xticks([0,1,2,3],['$\mathit{Df1}$/+\nHL', '$\mathit{Df1}$/+\nNonHL', 'WT\nHL', 'WT\nNonHL'],fontsize=16)
+        plt.xticks([0,1,2,3],['$\mathit{Df1}$/+\nNonHL', '$\mathit{Df1}$/+\nHL', 'WT\nNonHL', 'WT\nHL'],fontsize=16)
         return fig
     
     def Plot_Components_Correlation(self):
@@ -1417,7 +1587,7 @@ class Summary:
         fig, axs = plt.subplots(1, 2, figsize=(
             10, 5), sharex=True, layout='constrained')
         for i in range(4):
-            group_pca = PCA(self.groups[i])
+            group_pca = Latent(self.groups[i])
             group_pca.Calculate_Distance(PC=PC)
             axs[0].plot(np.arange(9), get_evoked_ratio(group_pca.euclidean_distance)[
                         1:], color=self.colors[i], ls=self.ls[i], label=self.labels[i])
@@ -1440,7 +1610,7 @@ class Summary:
     def Plot_Angle(self, PC=[0, 1, 3]):
         fig, axs = plt.subplots(1, 3, figsize=(18, 6), layout='constrained')
         for i in range(4):
-            group_pca = PCA(self.groups[i])
+            group_pca = Latent(self.groups[i])
             group_pca.Calculate_Angle(PC=PC)
             axs[0].plot(np.arange(10), group_pca.angle_noise,
                      color=self.colors[i], ls=self.ls[i], label=self.labels[i])
@@ -1464,7 +1634,7 @@ class Summary:
 
         fig, axs = plt.subplots(1, 3, figsize=(18,6))
         for i in range(4):
-            group_pca = PCA(self.groups[i])
+            group_pca = Latent(self.groups[i])
             group_pca.Calculate_First_Step_per_Gap(PC)
             axs[0].plot(np.arange(10), group_pca.first_step_pre_gap, color=self.colors[i], ls=self.ls[i], label=self.labels[i])
             axs[1].plot(np.arange(10), group_pca.first_step_gap, color=self.colors[i], ls=self.ls[i], label=self.labels[i])
