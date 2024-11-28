@@ -46,9 +46,9 @@ class Group:
     
     def Get_Group_Recording(self):
         if self.hearing_type == 'NonHL':
-            return mouse[(mouse['Geno']==self.geno_type)&(mouse['L_Thres']>42)]['Recording'].values
-        else:
             return mouse[(mouse['Geno']==self.geno_type)&(mouse['L_Thres']<42)]['Recording'].values
+        else:
+            return mouse[(mouse['Geno']==self.geno_type)&(mouse['L_Thres']>42)]['Recording'].values
     
     def Get_Gaps_Label(self):
         def Create_Sound_Cond(gap_duration):
@@ -159,7 +159,7 @@ class Recording:
         
     
     def Get_Info(self):
-        if mouse[mouse['Recording'] == self.rec_name]['L_Thres'].to_numpy()[0] < 42: self.hearing_type = 'HL'
+        if mouse[mouse['Recording'] == self.rec_name]['L_Thres'].to_numpy()[0] > 42: self.hearing_type = 'HL'
         else: self.hearing_type = 'NonHL'
         self.hearing_threshold = (mouse[mouse['Recording'] == self.rec_name]['L_Thres'].to_numpy()[0] 
                                   + mouse[mouse['Recording'] == self.rec_name]['R_Thres'].to_numpy()[0])/2

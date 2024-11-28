@@ -181,28 +181,31 @@ def Display_Group(response_per_gap, pc_corre, pca_score, trajectory_3d, travel_d
                     Model.model.Set_Params_of_Least_Loss()
                 
                 Plot_Model = plot.System(Group, Model)
-                fig1, fig2, fig3, fig4, fig5 = Plot_Model.Draw_Model(gap_idx = 9)
+                fig1, fig2, fig3, fig4, fig5, fig6 = Plot_Model.Draw_Model(gap_idx = 9)
                 fig1.savefig(file_path_sub+'Model/Trajectory.png')
                 fig2.savefig(file_path_sub+'Model/Trajectory_3d.png')
                 fig3.savefig(file_path_sub+'Model/Params.png')
                 fig4.savefig(file_path_sub+'Model/Loss_with_Iter.png')
                 fig5.savefig(file_path_sub+'Model/Gap_Duration_Recognition.png')
+                fig6.savefig(file_path_sub+'Model/Fix_Point.png')
                 
-                fig = Plot_Model.Draw_Gap_Threshold_Simulation()
+                '''fig = Plot_Model.Draw_Gap_Threshold_Simulation()
                 fig.savefig(file_path_sub+'Model/Gap_Threshold_Simulation.png')
                 
+                S_on = 60 
+                if Group.hearing_type == 'HL': S_on = 75
                 S = np.zeros(2000) + 10
-                for t in range(100, 350): S[t] = 60
-                for t in range(500, 750): S[t] = 60
-                for t in range(800, 850): S[t] = 60
-                for t in range(870, 920): S[t] = 60
-                for t in range(940, 990): S[t] = 60
-                for t in range(1250, 1550): S[t] = 60
+                for t in range(100, 350): S[t] = S_on
+                for t in range(500, 750): S[t] = S_on
+                for t in range(800, 850): S[t] = S_on
+                for t in range(870, 920): S[t] = S_on
+                for t in range(940, 990): S[t] = S_on
+                for t in range(1250, 1550): S[t] = S_on
                 
                 fig1, fig2, fig3 = Plot_Model.Draw_Simulation(S)
                 fig1.savefig(file_path_sub+'Model/Simulated_Trajectory.png')
                 fig2.savefig(file_path_sub+'Model/Simulated_Trajectory_3d.png')
-                fig3.savefig(file_path_sub+'Model/Simulated_Gap_Decoding.png')
+                fig3.savefig(file_path_sub+'Model/Simulated_Gap_Decoding.png')'''
                 
 
 def main():
@@ -225,15 +228,15 @@ def main():
                   model = True,
                   file_path = '../Images/')
     
-    '''
-    Display_Group_Summary(unit_type = False, 
+    
+    '''Display_Group_Summary(unit_type = True, 
                           pc_corre = False,
                           pca_variance = False, 
                           distance = False, 
                           angle = False, 
                           travel = False, 
-                          file_path = '../Images/AllGroup/')
-    '''
+                          file_path = '../Images/AllGroup/')'''
+    
 
 if __name__ == "__main__":
     main()

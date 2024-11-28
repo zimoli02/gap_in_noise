@@ -999,6 +999,7 @@ class Decoder:
 
         subspaces = [onset_pca.loading, offset_pca.loading, noise_pca.loading, background_pca.loading]
         subspaces_label = ['On-Resp Subspace', 'Off-Resp Subspace', 'Noise-Resp Subspace', 'Background Subspace']
+        
         fig2, axs = plt.subplots(2, 2, figsize = (12, 12))
         axs = axs.flatten()
         gap_dur = round(self.group.gaps[0]*1000)
@@ -1281,7 +1282,7 @@ class System:
                 
                 model.gap_idx = i
                 model.Set_Gap_Dependent_Params()
-                model.Run()
+                model.Run(noise = True)
                 
                 baseline = np.mean(calculate_distance(model.PCs, start = 50, end = 100))
                 
@@ -1325,17 +1326,129 @@ class System:
             plt.tight_layout()
             return fig5
         
+        def Draw_Fix_Point():
+            def Draw_Random_Trajectory(time, start_points, W, n_steps, point_color, axs):
+                def derivative(point, W):
+                    return ((W @ point.reshape(-1, 1) + (self.model.OnS[time] * self.model.OnRe)+ (self.model.OffS[time] * self.model.OffRe)).T * self.model.Nt.T).reshape(1, -1)[0]
+
+                def simulate_trajectory(W, start_point, dt=1, n_steps=200):
+                    trajectory = np.zeros((n_steps, 3))
+                    trajectory[0] = start_point
+                    
+                    for i in range(1, n_steps):
+                        curr_derivative = derivative(trajectory[i-1], W)
+                        trajectory[i] = trajectory[i-1] + dt * curr_derivative
+                        
+                    return trajectory
+                
+                colors = np.linspace(0, 1, n_steps)
+                for start in start_points:
+                    traj = simulate_trajectory(W, start, dt = 1, n_steps = n_steps)
+                    for i in range(len(traj)-1):
+                        axs.plot3D(traj[i:i+2,0], traj[i:i+2,1], traj[i:i+2,2], 
+                                color=plt.cm.viridis(colors[i]), 
+                                alpha=0.6)
+                    axs.scatter(*start, color=point_color, s=30)
+
+                return axs 
+
+            # Plot
+            fig6, axs = plt.subplots(1,3,figsize=(34, 10), subplot_kw={'projection': '3d'})
+            W = self.model.W
+            eigenvals, eigenvecs = np.linalg.eig(W)
+            
+            #Draw fixed points
+            fix_point = np.linalg.solve(W, np.zeros((3,1)))
+            axs[0].scatter(fix_point[0,0],fix_point[1,0],fix_point[2,0], color = 'brown', s = 30, label = 'Fixed Point')
+            near_stable_points = []
+            for i in [-0.1, 0, 0.1]:
+                for j in [-0.1, 0, 0.1]:
+                    for k in [-0.1, 0, 0.1]:
+                        near_stable_points.append(np.array([i+fix_point[0,0],j+fix_point[1,0],k+fix_point[2,0]]))
+            axs[0] = Draw_Random_Trajectory(0, near_stable_points, W, 100, 'darkblue', axs[0]) 
+            
+            for i in range(3):
+                real, imag = np.real(eigenvals[i]), np.imag(eigenvals[i])
+                if imag == 0: label = str(round(real,4))
+                elif imag > 0: label = str(round(real,4)) + ' + ' + str(round(imag,4)) + 'j'
+                else: label = str(round(real,4)) + ' - ' + str(round(-imag,4)) + 'j'
+                axs[0].plot([], [], color = 'black', label = label)  
+            axs[0].set_xlim([fix_point[0,0]-0.12, fix_point[0,0]+0.12])
+            axs[0].set_xticks([fix_point[0,0]-0.12, 0, fix_point[0,0]+0.12], [-0.12, 0, 0.12], fontsize = 16)
+            axs[0].set_ylim([fix_point[1,0]-0.12, fix_point[1,0]+0.12])
+            axs[0].set_yticks([fix_point[1,0]-0.12, 0, fix_point[1,0]+0.12], [-0.12, 0, 0.12], fontsize = 16)
+            axs[0].set_zlim([fix_point[2,0]-0.12, fix_point[2,0]+0.12])  
+            axs[0].set_zticks([fix_point[2,0]-0.12, 0, fix_point[2,0]+0.12], [-0.12, 0, 0.12], fontsize = 16)    
+                        
+            PC1 = gaussian_filter1d(self.model.PCs[0], sigma=sigma)
+            PC2 = gaussian_filter1d(self.model.PCs[1], sigma=sigma)
+            PC3 = gaussian_filter1d(self.model.PCs[2], sigma=sigma)
+
+            if Flip(PC1): PC1 *= -1
+            if Flip(PC2): PC2 *= -1
+            if Flip(PC3): PC3 *= -1
+
+            gap_dur = round(256+350)
+            linecolors = ['grey', 'green', 'black', 'lightgreen', 'black']
+            linestyle = ['-', '--', '-', '--', ':']
+            labels = ['pre-N1', 'noise1','gap', 'noise2', 'post-N2']
+            starts = [0, 100, 350, gap_dur, gap_dur + 100]
+            ends = [100, 350, gap_dur, gap_dur+100, 1000]
+            for k in range(3):
+                axs[1].plot(PC1[starts[k]:ends[k]], PC2[starts[k]:ends[k]], PC3[starts[k]:ends[k]], 
+                                                ls=linestyle[k], c=linecolors[k], linewidth = 2, alpha = 0.5)
+                axs[2].plot(PC1[starts[k]:ends[k]], PC2[starts[k]:ends[k]], PC3[starts[k]:ends[k]], 
+                                                ls=linestyle[k], c=linecolors[k], linewidth = 2, alpha = 0.5)
+
+
+            for time in [105, 110, 115, 120, 125, 135, 150, 200, 275]:
+                axs[1].scatter(PC1[time],PC2[time],PC3[time], color = 'magenta', s = 30)
+                axs[1] = Draw_Random_Trajectory(time, [np.array([PC1[time],PC2[time],PC3[time]])], W, 200, 'magenta', axs[1])
+                
+                ext_input = self.model.OnS[time]*self.model.OnRe + self.model.OffS[time]*self.model.OffRe
+                fix_point = np.linalg.solve(W, -ext_input)
+                axs[1].scatter(fix_point[0,0],fix_point[1,0],fix_point[2,0], color = 'saddlebrown', s = 30)
+
+            for time in [350, 355, 370, 390, 420, 500, 600]:
+                axs[2].scatter(PC1[time],PC2[time],PC3[time], color = 'magenta', s = 30)
+                axs[2] = Draw_Random_Trajectory(time, [np.array([PC1[time],PC2[time],PC3[time]])], W, 200, 'magenta', axs[2])
+                
+                ext_input = self.model.OnS[time]*self.model.OnRe + self.model.OffS[time]*self.model.OffRe
+                fix_point = np.linalg.solve(W, -ext_input)
+                axs[2].scatter(fix_point[0,0],fix_point[1,0],fix_point[2,0], color = 'sandybrown', s = 30)
+            
+            for i in range(1,3):
+                axs[1].scatter([], [], color = 'saddlebrown', s = 30, label = 'Fixed Point of Noise')
+                axs[2].scatter([], [], color = 'sandybrown', s = 30, label = 'Fixed Point of Silence')
+                axs[i].scatter([], [], color = 'magenta', s = 30, label = 'Trajectory Points')
+                axs[i].set_xlim((-1,3))
+                axs[i].set_ylim((-0.5,2))
+                axs[i].set_zlim((-1,1)) 
+
+            for i in range(3):
+                axs[i].legend(loc = 'upper left', fontsize = 18)  
+                axs[i].set_xlabel('X', fontsize = 18)
+                axs[i].set_ylabel('Y', fontsize = 18)
+                axs[i].set_zlabel('Z', fontsize = 18)
+            axs[0].set_title('Fixed Point', fontsize = 20)
+            axs[1].set_title('Time-Varying Fixed Point: Noise', fontsize = 20)
+            axs[2].set_title('Time-Varying Fixed Point: Gap', fontsize = 20)
+            plt.tight_layout() 
+            return fig6
+                        
+                        
         self.model.gap_idx = gap_idx
         self.model.Set_Gap_Dependent_Params()
-        self.model.Run()
+        self.model.Run(noise = True)
         
         fig1 = Draw_Trace_2d() 
         fig2 = Draw_Trace_3d()
         fig3 = Draw_Parameters() 
         fig4 = Draw_Loss_with_Iter()
         fig5 = Draw_Gap_Duration_Recognition()
+        fig6 = Draw_Fix_Point()
         
-        return fig1, fig2, fig3, fig4, fig5
+        return fig1, fig2, fig3, fig4, fig5, fig6
         
     def Draw_Simulation(self, SoundInput):
         def get_periods(S):
@@ -1427,13 +1540,29 @@ class System:
             for t in range(len(s)):
                 if s[t] > boundary: noises[t] = 1
                 
-            fig3, axs = plt.subplots(1, 1, figsize = (24, 4))
+            fig3, axs = plt.subplots(1, 1, figsize = (30, 12))
             axs.plot(s)
-            axs.plot(noises, color = 'red')
-            axs.axhline(y = boundary, color = 'grey', linestyle = ':')
+            axs.plot(noises, color = 'red', label = 'Predicted Noise')
+            axs.axhline(y = boundary, color = 'grey', linestyle = ':', label = 'Boundary')
             ymin, ymax = axs.get_ylim()
             for t in range(1, len(starts), 2):
                 axs.fill_between([starts[t], ends[t]], ymin, ymax, color = 'dimgrey', alpha = 0.1)
+            axs.fill_between([starts[1], ends[1]], ymin, ymax, color = 'dimgrey', alpha = 0.1, label = 'True Noise')
+            axs.legend(loc = 'upper right', fontsize = 20)
+            
+            HMM = analysis.HMM(X.T, state = 4)
+            HMM.Fit_Model()
+            predicted_observation = self.Model.N.T
+            predicted_states = HMM.model.most_likely_states(predicted_observation)
+            colors_state = ['black', 'red', 'blue', 'green']
+            sort_idx = np.argsort(HMM.parameters[0].T[2])[::-1]
+            for j in range(HMM.n_state):
+                state = sort_idx[j]
+                mask = predicted_states == state
+                axs.fill_between(np.arange(len(predicted_states)), -0.4, -0.25, where=mask, color=colors_state[j], alpha=0.7)
+            axs.tick_params(axis='both', labelsize = 24)
+            axs.set_xlabel('Time (ms)', fontsize = 24)
+            plt.tight_layout()
             return fig3
                 
         starts, ends, linecolors = get_periods(SoundInput)
@@ -1487,13 +1616,13 @@ class System:
                     break
             gap_detections[gap_dur-1] = end-start 
         
-        fig, axs = plt.subplots(1, 1, figsize = (8, 8))
+        fig, axs = plt.subplots(1, 1, figsize = (12, 12))
         axs.scatter(np.arange(1, 64, 1), gap_detections)
         axs.plot(np.arange(1, 64, 1), np.arange(1, 64, 1), color = 'red', linestyle = ":")
         axs.set_ylim(-1,65)
-        axs.set_xlabel('Simulated Gap Duration (ms)', fontsize = 20)
-        axs.set_ylabel('Predicted Gap Duration (ms)', fontsize = 20)
-        axs.tick_params(axis='both', labelsize = 16)
+        axs.set_xlabel('Simulated Gap Duration (ms)', fontsize = 26)
+        axs.set_ylabel('Predicted Gap Duration (ms)', fontsize = 26)
+        axs.tick_params(axis='both', labelsize = 24)
         plt.tight_layout()
 
         return fig

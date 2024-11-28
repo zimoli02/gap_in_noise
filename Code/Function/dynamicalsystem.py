@@ -11,78 +11,80 @@ def Flip(PC):
     else: return False
 
 def Set_Params(model, groupname):
-    if groupname == 'WT_NonHL':
-        model.Nt = np.array([[0.15],[0.40],[0.20]]) 
-        model.W = np.array([
-                [-0.12, -0.02, -0.20],
-                [-0.05, -0.09, 0.03],
-                [-0.20, 0.03, -0.9]]) 
-
-        ## Response to Stimuli
-        model.OnRe = np.array([[1.3],[0.7],[1.5]]) 
-        model.OffRe = np.array([[0.2],[-0.02],[1.45]]) 
-        
-        model.tau_I_on, model.tau_I_on_coef = 10, 1.3
-        model.tau_A_on, model.tau_A_on_coef = 10, 0.6
-        model.delay_on, model.delay_on_coef = 5, 1
-        
-        model.tau_I_off, model.tau_I_off_coef = 5, 1.2
-        model.tau_A_off, model.tau_A_off_coef = 50, 0.5
-        model.delay_off, model.delay_off_coef = 10, 1
     if groupname == 'WT_HL':
-        model.Nt = np.array([[0.15],[0.40],[0.20]]) 
+        model.Nt = np.array([[0.3],[0.4],[0.3]]) 
         model.W = np.array([
-                [-0.12, -0.02, -0.20],
-                [-0.05, -0.09, 0.03],
-                [-0.20, 0.03, -0.9]]) 
+                [-0.07, -0.06, -0.12],
+                [-0.08, -0.1, -0.08],
+                [-0.06, -0.08, -0.1]]) 
 
         ## Response to Stimuli
-        model.OnRe = np.array([[1.3],[0.7],[1.5]]) 
-        model.OffRe = np.array([[0.2],[-0.02],[1.45]]) 
+        model.OnRe = np.array([[1.1],[0.9],[0.8]]) 
+        model.OffRe = np.array([[0.13],[0.18],[0.34]]) 
         
-        model.tau_I_on, model.tau_I_on_coef = 10, 1.3
-        model.tau_A_on, model.tau_A_on_coef = 10, 0.6
+        model.tau_I_on, model.tau_I_on_coef = 10, 1.8
+        model.tau_A_on, model.tau_A_on_coef = 10, 0.7
         model.delay_on, model.delay_on_coef = 5, 1
         
-        model.tau_I_off, model.tau_I_off_coef = 5, 1.2
-        model.tau_A_off, model.tau_A_off_coef = 50, 0.5
+        model.tau_I_off, model.tau_I_off_coef = 5, 0.35
+        model.tau_A_off, model.tau_A_off_coef = 50, 0.32
         model.delay_off, model.delay_off_coef = 10, 1
-    if groupname == 'Df1_NonHL':
-        model.Nt = np.array([[0.15],[0.40],[0.20]]) 
+        
+    if groupname == 'WT_NonHL':
+        model.Nt = np.array([[0.3],[0.4],[0.30]]) 
         model.W = np.array([
-                [-0.12, -0.02, -0.20],
-                [-0.05, -0.09, 0.03],
-                [-0.20, 0.03, -0.9]]) 
+                [-0.11, -0.01, -0.17],
+                [-0.16, -0.09, -0.16],
+                [-0.09, -0.04, -0.11]]) 
 
         ## Response to Stimuli
-        model.OnRe = np.array([[1.3],[0.7],[1.5]]) 
-        model.OffRe = np.array([[0.2],[-0.02],[1.45]]) 
+        model.OnRe = np.array([[0.68],[0.9],[0.73]]) 
+        model.OffRe = np.array([[0.16],[0.25],[0.27]]) 
         
-        model.tau_I_on, model.tau_I_on_coef = 10, 1.3
-        model.tau_A_on, model.tau_A_on_coef = 10, 0.6
+        model.tau_I_on, model.tau_I_on_coef = 10, 2.1
+        model.tau_A_on, model.tau_A_on_coef = 10, 0.3
         model.delay_on, model.delay_on_coef = 5, 1
         
-        model.tau_I_off, model.tau_I_off_coef = 5, 1.2
-        model.tau_A_off, model.tau_A_off_coef = 50, 0.5
+        model.tau_I_off, model.tau_I_off_coef = 5, 1.4
+        model.tau_A_off, model.tau_A_off_coef = 50, 0.14
         model.delay_off, model.delay_off_coef = 10, 1
         
     if groupname == 'Df1_HL':
-        model.Nt = np.array([[0.15],[0.40],[0.20]]) 
+        model.Nt = np.array([[0.3],[0.4],[0.3]]) 
         model.W = np.array([
-                [-0.12, -0.02, -0.20],
-                [-0.05, -0.09, 0.03],
-                [-0.20, 0.03, -0.9]]) 
+                [-0.07, -0.08, -0.07],
+                [-0.07, -0.09, -0.02],
+                [-0.06, -0.12, -0.08]]) 
 
         ## Response to Stimuli
-        model.OnRe = np.array([[1.3],[0.7],[1.5]]) 
-        model.OffRe = np.array([[0.2],[-0.02],[1.45]]) 
+        model.OnRe = np.array([[1.03],[0.9],[0.9]]) 
+        model.OffRe = np.array([[0.25],[0.29],[0.45]]) 
         
-        model.tau_I_on, model.tau_I_on_coef = 10, 1.3
-        model.tau_A_on, model.tau_A_on_coef = 10, 0.6
+        model.tau_I_on, model.tau_I_on_coef = 10, 0.7
+        model.tau_A_on, model.tau_A_on_coef = 10, 0.5
         model.delay_on, model.delay_on_coef = 5, 1
         
-        model.tau_I_off, model.tau_I_off_coef = 5, 1.2
-        model.tau_A_off, model.tau_A_off_coef = 50, 0.5
+        model.tau_I_off, model.tau_I_off_coef = 5, 0.95
+        model.tau_A_off, model.tau_A_off_coef = 50, 0.2
+        model.delay_off, model.delay_off_coef = 10, 1
+        
+    if groupname == 'Df1_NonHL':
+        model.Nt = np.array([[0.3],[0.4],[0.3]]) 
+        model.W = np.array([
+                [-0.12, -0.04, 0.13],
+                [-0.14, -0.09, 0.06],
+                [-0.11, -0.02, -0.09]]) 
+
+        ## Response to Stimuli
+        model.OnRe = np.array([[0.69],[0.84],[0.94]]) 
+        model.OffRe = np.array([[0.24],[0.32],[0.05]]) 
+        
+        model.tau_I_on, model.tau_I_on_coef = 10, 2.0
+        model.tau_A_on, model.tau_A_on_coef = 10, 0.43
+        model.delay_on, model.delay_on_coef = 5, 1
+        
+        model.tau_I_off, model.tau_I_off_coef = 5, 1.8
+        model.tau_A_off, model.tau_A_off_coef = 50, 0.01
         model.delay_off, model.delay_off_coef = 10, 1
 
 
@@ -219,7 +221,7 @@ class DynamicalSystem:
         self.OffRe = None 
         
         self.S_on, self.S_off = 60, 10
-        if self.group.hearing_type == 'HL': self.S_on = 50
+        if self.group.hearing_type == 'HL': self.S_on = 75
         
         self.tau_I_on, self.tau_I_on_coef = 10, 1
         self.tau_A_on, self.tau_A_on_coef = 10, 1
@@ -228,14 +230,16 @@ class DynamicalSystem:
         self.tau_I_off, self.tau_I_off_coef = 5, 1
         self.tau_A_off, self.tau_A_off_coef = 50, 1
         self.delay_off, self.delay_off_coef = 10, 1
-        
-        self.Set_Gap_Dependent_Params()
-        self.Init_Params()
+
         self.N = np.zeros((3, len(self.times)))
         
         self.train_gap_idx, self.train_start, self.train_end = 8, 50, 350 + 128+150
         self.validate_gap_idx, self.validate_start, self.validate_end = 9, 50, 350 + 256 + 150
         self.lr = 0.001
+        if self.group.geno_type == 'WT' :self.lr = 0.01 
+        
+        self.Set_Gap_Dependent_Params()
+        self.Init_Params()
         
         
     def Set_Gap_Dependent_Params(self):
@@ -389,7 +393,7 @@ class DynamicalSystem:
         
         return rIA
     
-    def Init_Params(self, infer = False):
+    def Init_Params(self, infer = True):
         ## Timescale
         self.Nt = np.array(
             [
@@ -425,14 +429,19 @@ class DynamicalSystem:
         ) 
         
         if infer: 
-            self = Infer_Parameters(self)
+            #self = Infer_Parameters(self)
+            self = Set_Params(self, self.group.geno_type + '_' + self.group.hearing_type)
         
     def Optimize_Params(self):
         def Calculate_Validate_Loss():
             temp_self = copy.deepcopy(self)  # Creates a deep copy
             temp_self.gap_idx = self.validate_gap_idx
             temp_self.Set_Gap_Dependent_Params()
-            temp_self.Run()
+
+            temp_self.N = np.zeros((3, len(self.times)))
+            for t in range(1,len(self.times)):
+                temp_self.N[:,[t]] = temp_self.N[:,[t-1]] +(temp_self.W@temp_self.N[:,[t-1]] + temp_self.OnRe*temp_self.OnS[t-1] + temp_self.OffRe*temp_self.OffS[t-1])*self.Nt
+
             return np.mean((temp_self.N[:, self.validate_start:self.validate_end] 
                             - temp_self.PCs[:, self.validate_start:self.validate_end])**2)
 
@@ -479,7 +488,7 @@ class DynamicalSystem:
         num_iterations = 1000
         
         # Set threshold for minimum change in loss
-        patience = 5  # Number of iterations to wait
+        validate_patience, train_patience = 5, 5  # Number of iterations to wait
         min_delta = 1e-4  # Minimum change in loss to be considered significant
         best_loss = float('inf')
         validate_patience_counter = 0
@@ -533,8 +542,8 @@ class DynamicalSystem:
                 if iter > 2:
                     if best_loss < self.validate_loss[-1]:
                         validate_patience_counter += 1
-                        if validate_patience_counter >= patience:
-                            print(f"Early Stopped: Validate Loss Increased for {patience} iterations")
+                        if validate_patience_counter >= validate_patience:
+                            print(f"Early Stopped: Validate Loss Increased for {validate_patience} iterations")
                             break
                     else:
                         validate_patience_counter = 0
@@ -542,8 +551,8 @@ class DynamicalSystem:
 
                     if  abs(self.train_loss[-1] - self.train_loss[-2]) < min_delta:
                         train_patience_counter += 1
-                        if train_patience_counter >= patience:
-                            print(f"Converged: Train Loss hasn't improved by {min_delta} for {patience} iterations")
+                        if train_patience_counter >= train_patience:
+                            print(f"Converged: Train Loss hasn't improved by {min_delta} for {train_patience} iterations")
                             break
                     else:
                         train_patience_counter = 0
@@ -563,7 +572,7 @@ class DynamicalSystem:
 
     def Cross_Validate_Optimization(self):
         def Select_Period(length_session):
-            gap_idx = np.random.randint(10)
+            gap_idx = np.random.randint(5, 10)
             start = np.random.randint(50, 600+round(self.group.gaps[gap_idx]*1000)-length_session)
             end = start + length_session
             return gap_idx, start, end
@@ -660,14 +669,13 @@ class DynamicalSystem:
         self.tau_A_off_coef = np.median(Train_Params['tau_A_off_coef'])
         self.delay_off_coef = np.median(Train_Params['delay_off_coef'])
             
-    def Run(self):
+    def Run(self, noise = False):
         self.Get_PCs()
         self.OnS = self.Get_Input(self.gap_idx, self.tau_I_on * self.tau_I_on_coef, self.tau_A_on* self.tau_A_on_coef, round(self.delay_on * self.delay_on_coef), invert = False)
         self.OffS = self.Get_Input(self.gap_idx, self.tau_I_off * self.tau_I_off_coef, self.tau_A_off * self.tau_A_off_coef, round(self.delay_off * self.delay_off_coef), invert = True)
         
         self.N = np.zeros((3, len(self.times)))
         for t in range(1,len(self.times)):
-            noise = np.random.normal(0, np.sqrt(0.001), (3, 1))
-            self.N[:,[t]] = self.N[:,[t-1]] +(self.W@self.N[:,[t-1]] + self.OnRe*self.OnS[t-1] + self.OffRe*self.OffS[t-1])*self.Nt + noise
-
-        # Normalize()
+            self.N[:,[t]] = self.N[:,[t-1]] +(self.W@self.N[:,[t-1]] + self.OnRe*self.OnS[t-1] + self.OffRe*self.OffS[t-1])*self.Nt
+            if noise: self.N[:,[t]] = self.N[:,[t]] + np.random.normal(0, np.sqrt(0.0001), (3, 1))
+        
