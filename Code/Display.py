@@ -1,6 +1,7 @@
 import os
 from PIL import Image
 import pickle
+from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
@@ -33,6 +34,22 @@ grouppath = '/Volumes/Research/GapInNoise/Data/Groups/'
 recordingpath = '/Volumes/Research/GapInNoise/Data/Recordings/'
 modelpath = '/Volumes/Research/GapInNoise/Data/TrainedModel/'
 
+@dataclass
+class DisplayParams:
+    response_per_gap: bool = False
+    pc_corre: bool = False
+    pca_score: bool = False
+    trajectory_3d: bool = False
+    travel_degree: bool = False
+    trajectory_3d_by_event: bool = False
+    trajectory_event: bool = False
+    distance: bool = False
+    angle: bool = False
+    principal_angle: bool = False
+    onoff: bool = False
+    on_gap_dependent: bool = False
+    decoder: bool = False
+    model: bool = False
 
 def create_gif(input_folder, output_file, duration=500):
     images = []
@@ -75,8 +92,8 @@ def Display_Group_Summary(unit_type, pc_corre, pca_variance, distance, angle, tr
     if travel:
         GroupSummary.Plot_Travel_Distance_First_Step(PC = [0,1,3]).savefig(file_path + 'TravelSummary.png')
         
-def Display_Group(response_per_gap, pc_corre, pca_score, trajectory_3d, travel_degree, trajectory_3d_by_event, trajectory_event, distance, angle, principal_angle, onoff, on_gap_dependent, decoder, model, file_path):
-    for geno_type in ['WT', 'Df1']:
+def Display_Group(params: DisplayParams, file_path):
+    for geno_type in ['WT', 'Df1']: 
         for hearing_type in ['NonHL', 'HL']:
             file_path_sub = file_path + geno_type + '_' + hearing_type + '/'
 
@@ -88,7 +105,7 @@ def Display_Group(response_per_gap, pc_corre, pca_score, trajectory_3d, travel_d
             Plot_Latent = plot.Latent(Group)
             Plot_Decoder = plot.Decoder(Group)
             
-            if response_per_gap:
+            if params.response_per_gap:
                 # Plot the heatmap of neural activities in each example trial (averaged across 45 trials)
                 PC_idx = 0
                 for idx in range(10):
@@ -97,42 +114,45 @@ def Display_Group(response_per_gap, pc_corre, pca_score, trajectory_3d, travel_d
                 output_file = file_path_sub + 'Responses_PC' + str(PC_idx + 1) + '.gif'
                 create_gif(input_folder, output_file)
 
-            if pca_score:
+            if params.pca_score:
                 # Plot the projection of data on the first 4 principal components
                 Plot_Latent.Plot_Projection(PC = [0,1,2,3]).savefig(file_path_sub + 'Component/Projection.png')
             
-            if pc_corre:
+            if params.pc_corre:
                 # Plot the correlation between loadings of principal components with on/off-response z-scores
                 Plot_Latent.Plot_Components_Correlation().savefig(file_path_sub + 'Component/Correlation.png')
 
-            if trajectory_3d:
+            if params.trajectory_3d:
                 fig1, fig2 = Plot_Latent.Plot_Trajectory_3d(PC = [0,1,2])
                 fig1.savefig(file_path_sub + 'Trajectory/3d.png')
                 fig2.savefig(file_path_sub + 'Trajectory/3d_Event_Step_Distance_per_Gap.png')
                 
-            if trajectory_3d_by_event:
+            if params.trajectory_3d_by_event:
                 Plot_Latent.Plot_Trajectory_3d_by_Event(PC = [0,1,2]).savefig(file_path_sub + 'Trajectory/3d_by_Event.png')
             
-            if trajectory_event:
+            if params.trajectory_event:
                 fig1, fig2, fig3 = Plot_Latent.Plot_Trajectory_3d_Event(PC = [0,1,2])
                 fig1.savefig(file_path_sub + 'Trajectory/3d_Event.png')
                 fig2.savefig(file_path_sub + 'Trajectory/3d_Event_Step_Distance.png')
                 fig3.savefig(file_path_sub + 'Trajectory/3d_Event_Euclidean_Distance.png')
                 
-            if travel_degree:
+            if params.travel_degree:
                 Plot_Latent.Plot_Step_Degree(PC = [0,1,2]).savefig(file_path_sub + 'Trajectory/Step_Degree.png')
                 
-            if distance:
+            if params.distance:
                 Plot_Latent.Plot_Distance(PC = [0,1,2]).savefig(file_path_sub + 'Trajectory/Distances.png')
             
-            if angle:
+            if params.angle:
                 Plot_Latent.Plot_Angle(PC = [0,1,2]).savefig(file_path_sub + 'Trajectory/3d_Angle.png')
     
-            if principal_angle:
+            if params.principal_angle:
                 # Compare how similar two subspaces are by taking the average principal angles
-                Plot_Latent.Plot_Principal_Angle(dim=5).savefig(file_path_sub + 'Subspace/PrincipalAngle.png')
+                fig1, fig2, fig3 = Plot_Latent.Plot_Principal_Angle(dim=5)
+                fig1.savefig(file_path_sub + 'Subspace/PrincipalAngle.png')
+                fig2.savefig(file_path_sub + 'Subspace/PrincipalAngle_LeaveOneOut.png')
+                fig3.savefig(file_path_sub + 'Subspace/PrincipalAngle_LeaveOneOut_onoff.png')
     
-            if onoff:
+            if params.onoff:
                 fig1, fig2, fig3, fig4, fig5 = Plot_Latent.Plot_OnOff_Period()
                 # Draw variance explained from the four subspaces: [on, off] x [original, exclude sustanined response]
                 fig1.savefig(file_path_sub + 'OnOff/Variance.png')
@@ -145,7 +165,7 @@ def Display_Group(response_per_gap, pc_corre, pca_score, trajectory_3d, travel_d
                 # Draw PC1-N heatmap of data projected to the period-specific subspace 
                 fig5.savefig(file_path_sub + 'OnOff/Data_Projection_to_All.png')
             
-            if on_gap_dependent:
+            if params.on_gap_dependent:
                 fig1, fig2, fig3 = Plot_Latent.Plot_Gap_Dependent_On_Response()
                 # Compare the similarity between the period-specific subspaces, with or without projection
                 fig1.savefig(file_path_sub + 'OnOff/Gap_Dependent_OnResp_PrincipalAngle.png')
@@ -155,7 +175,7 @@ def Display_Group(response_per_gap, pc_corre, pca_score, trajectory_3d, travel_d
                 fig3.savefig(file_path_sub + 'OnOff/Gap_Dependent_OnResp_Similarity.png')
             
             
-            if decoder:
+            if params.decoder:
                 fig1, fig2 = Plot_Decoder.Plot_Noise_Return_Silence()
                 fig1.savefig(file_path_sub + 'OnOff/Noise_Return_Silence.png')
                 fig2.savefig(file_path_sub + 'OnOff/Noise_Return_Silence_Diff_Subspace.png')
@@ -166,7 +186,7 @@ def Display_Group(response_per_gap, pc_corre, pca_score, trajectory_3d, travel_d
                 fig = Plot_Decoder.Plot_HMM_Decoder()
                 fig.savefig(file_path_sub + 'Decoder/HMM.png')
                 
-            if model:
+            if params.model:
                 Update = False 
                 
                 if Update:
@@ -206,27 +226,18 @@ def Display_Group(response_per_gap, pc_corre, pca_score, trajectory_3d, travel_d
                 fig1.savefig(file_path_sub+'Model/Simulated_Trajectory.png')
                 fig2.savefig(file_path_sub+'Model/Simulated_Trajectory_3d.png')
                 fig3.savefig(file_path_sub+'Model/Simulated_Gap_Decoding.png')'''
-                
+
+               
 
 def main():
     
     #Display_Single_Recording(file_path = '../Images/SingleMouse/')
     
-    Display_Group(response_per_gap = False, 
-                  pc_corre = False,
-                  pca_score = False, 
-                  trajectory_3d = False, 
-                  travel_degree=False,
-                  trajectory_3d_by_event = False, 
-                  trajectory_event = False, 
-                  distance = False, 
-                  angle = False, 
-                  principal_angle = False,
-                  onoff = False,
-                  on_gap_dependent = False, 
-                  decoder = False,
-                  model = True,
-                  file_path = '../Images/')
+    params = DisplayParams(
+        principal_angle=True
+    )
+    
+    Display_Group(params, file_path = '../Images/')
     
     
     '''Display_Group_Summary(unit_type = True, 

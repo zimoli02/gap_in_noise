@@ -42,7 +42,7 @@ class Group:
         self.unit_num = self.pop_response.shape[0]
 
         self.pca = analysis.PCA(self.pop_response_stand)
-        self.periods_pca = self.Get_PCA_for_periods()
+        self.periods, self.periods_pca = self.Get_PCA_for_periods()
     
     def Get_Group_Recording(self):
         if self.hearing_type == 'NonHL':
@@ -118,20 +118,21 @@ class Group:
         return meta_psth_z
 
     def Get_PCA_for_periods(self):
-        periods_pca = []
+        periods_all = []
+        periods_pca_all = []
         for gap_idx in range(10):
             gap_dur = round(self.gaps[gap_idx]*1000+350)
 
-            N1_onset = self.pop_response_stand[:, gap_idx,100:200] # first 100 ms of noise1
-            N2_onset = self.pop_response_stand[:,gap_idx, gap_dur:gap_dur+100] # first 100 ms of noise2
-            N1_offset = self.pop_response_stand[:,gap_idx, gap_dur + 100: gap_dur + 100 + 100] # first 100 ms of post-N2 silence
+            N1_onset = self.pop_response_stand[:, gap_idx,110:210] # first 100 ms of noise1
+            N2_onset = self.pop_response_stand[:, gap_idx, gap_dur + 10:gap_dur+110] # first 100 ms of noise2
+            N2_offset = self.pop_response_stand[:,gap_idx, gap_dur + 110: gap_dur + 100 + 110] # first 100 ms of post-N2 silence
             N2_onset_exc_N1_on = N2_onset - N1_onset
-            N2_onset_exc_N1_on_off = N2_onset - N1_offset - N1_onset
+            N2_onset_exc_N1_on_off = N2_onset - N1_onset- N2_offset
             
-            periods = [N1_onset, N2_onset, N2_onset_exc_N1_on, N2_onset_exc_N1_on_off, N1_offset]
-            periods_pca_per_gap = [analysis.PCA(period, multiple_gaps = False) for period in periods]
-            periods_pca.append(periods_pca_per_gap)
-        return np.array(periods_pca)
+            periods = [N1_onset, N2_onset, N2_onset_exc_N1_on, N2_onset_exc_N1_on_off, N2_offset]
+            periods_all.append(periods)
+            periods_pca_all.append([analysis.PCA(period, multiple_gaps=False) for period in periods])
+        return np.array(periods_all), np.array(periods_pca_all)
             
 class Recording:
     def __init__(self, rec_name):
@@ -278,12 +279,48 @@ class Recording:
             self.unit_type[np.where((onset < 3) & (offset > 3))] = 'off'
             self.unit_type[np.where((onset > 3) & (offset > 3))] = 'both'
             self.unit_type[np.where((onset < 3) & (offset < 3))] = 'none'
-                
+        
+        def Calculate_Unit_Type(matrix):
+            unit_type = []
+            for unit_idx in range(len(matrix)):
+                response = np.zeros((2, 10))
+                for gap_idx in range(10):
+                    gap_dur = round(self.gaps[gap_idx]*1000)   
+                    #on-set
+                    background = matrix[unit_idx, gap_idx, 50:100].reshape(10, -1).sum(axis=1)
+                    mean, std = np.mean(background), np.std(background)
+                    on_response = matrix[unit_idx, gap_idx, 100:150].reshape(10, -1).sum(axis=1)
+                    for i in range(10-1):
+                        if on_response[i] > mean + 3*std and on_response[i+1] > mean + 3*std: 
+                            response[0, gap_idx] = 1
+                            break
+                        if on_response[i] < mean - 3*std and on_response[i+1] < mean - 3*std: 
+                            response[0, gap_idx] = 1
+                            break
+                    #offset
+                    background = matrix[unit_idx, gap_idx, 400+gap_dur:450+gap_dur].reshape(10, -1).sum(axis=1)
+                    mean, std = np.mean(background), np.std(background)
+                    off_response = matrix[unit_idx, gap_idx, 460+gap_dur:560+gap_dur].reshape(20, -1).sum(axis=1)
+                    for i in range(20-1):
+                        if off_response[i] > mean + 3*std and off_response[i+1] > mean + 3*std: 
+                            response[1, gap_idx] = 1
+                            break
+                        if off_response[i] < mean - 3*std and off_response[i+1] < mean - 3*std: 
+                            response[1, gap_idx] = 1
+                            break
+                if np.mean(response[0]) > 0.6 and np.mean(response[1]) < 0.7: unit_type.append('on')
+                if np.mean(response[0]) < 0.7 and np.mean(response[1]) > 0.6: unit_type.append('off')
+                if np.mean(response[0]) > 0.6 and np.mean(response[1]) > 0.6: unit_type.append('both')
+                if np.mean(response[0]) < 0.7 and np.mean(response[1]) < 0.7: unit_type.append('none')
+            self.unit_type = np.array(unit_type)
+        
+            
         meta_psth = np.zeros((2, 10, 1000))
         meta_psth = np.concatenate((meta_psth,
                                     self.response['sig_psth'][:,:,:,:].mean(axis=2)),
                                     axis=0)
-        Calculate_Onset_Offset(meta_psth[2:][:,0,:])
+        #Calculate_Onset_Offset(meta_psth[2:][:,0,:])
+        Calculate_Unit_Type(meta_psth[2:])
         return meta_psth[2:]
             
     def Get_Pop_Response_Standardized(self):

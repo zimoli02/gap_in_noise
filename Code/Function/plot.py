@@ -3,6 +3,8 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
+from matplotlib.ticker import MultipleLocator
+from matplotlib.ticker import FormatStrFormatter
 
 from scipy.ndimage import gaussian_filter1d
 from scipy.signal import savgol_filter
@@ -523,34 +525,124 @@ class Latent:
         return fig
 
     def Plot_Principal_Angle(self, dim = 5):
-        fig, axs = plt.subplots(1, 3, figsize=(17, 5))
-        count = 0
-        for count, gap_type in enumerate([3,7,9]):
-            gap_dur = round(self.gaps[gap_type]*1000+350)
+        def Plot_Multi_Gaps():
+            fig1, axs = plt.subplots(1, 3, figsize=(17, 5))
+            count = 0
+            for count, gap_type in enumerate([2,3,7]):
+                gap_dur = round(self.gaps[gap_type]*1000+350)
+                
+                pre_noise = self.group.pop_response_stand[:, gap_type,100:350]
+                gap =  self.group.pop_response_stand[:,gap_type, 350:gap_dur]
+                post_noise = self.group.pop_response_stand[:, gap_type, gap_dur:gap_dur+100]
+                silence = self.group.pop_response_stand[:, gap_type, gap_dur+100:]
+                periods = [pre_noise, post_noise, gap, silence]
+                
+                sim = np.zeros((4,4))
+                for i in range(4):
+                    for j in range(i,4):
+                        period1, period2 = periods[i], periods[j]
+                        period1_pca = analysis.PCA(period1, multiple_gaps = False)
+                        period2_pca = analysis.PCA(period2, multiple_gaps = False)
+                        angles = analysis.calculate_principal_angles(period1_pca.loading[:dim].T, period2_pca.loading[:dim].T)
+                        sim[i,j] = 1 - np.mean(angles) / (np.pi/2)
+                        sim[j,i] = sim[i,j]
+                sns.heatmap(sim, ax = axs[count], cmap = 'binary', vmax = 1, square=True,cbar = True)
+                
+                axs[count].set_aspect('auto')
+                axs[count].set_xticklabels(['N1', 'N2', 'Gap', 'Post-N2'], rotation = 0, fontsize = 14)
+                axs[count].set_yticklabels(['N1', 'N2', 'Gap', 'Post-N2'], fontsize = 14)
+                axs[count].set_title('Gap = ' + str(round(self.gaps[gap_type]*1000)) +'ms', fontsize = 16)
+            plt.tight_layout()
+            return fig1
+        
+        def Plot_Single_Neuron_Effect():
             
-            pre_noise = self.group.pop_response_stand[:, gap_type,100:350]
-            gap =  self.group.pop_response_stand[:,gap_type, 350:gap_dur]
-            post_noise = self.group.pop_response_stand[:, gap_type, gap_dur:gap_dur+100]
-            silence = self.group.pop_response_stand[:, gap_type, gap_dur+100:]
-            periods = [pre_noise, post_noise, gap, silence]
+            N1 = self.group.pop_response_stand[:, 0, 100:200]
+            gap = self.group.pop_response_stand[:,0, 460:560]
             
-            sim = np.zeros((4,4))
+            sim = np.zeros(len(gap))
+            for i in range(len(gap)):
+                N1_, gap_ = np.delete(N1, i, axis=0), np.delete(gap, i, axis=0)
+                period1_pca = analysis.PCA(N1_, multiple_gaps = False)
+                period2_pca = analysis.PCA(gap_, multiple_gaps = False)
+                angles = analysis.calculate_principal_angles(period1_pca.loading[:dim].T, period2_pca.loading[:dim].T)
+                sim[i] = 1 - np.mean(angles) / (np.pi/2)
+                
+            period1_pca = analysis.PCA(N1, multiple_gaps = False)
+            period2_pca = analysis.PCA(gap, multiple_gaps = False)
+            angles = analysis.calculate_principal_angles(period1_pca.loading[:dim].T, period2_pca.loading[:dim].T)
+            sim_orig = 1 - np.mean(angles) / (np.pi/2)
+            
+            sim_min = np.min(sim)
+            sim_max = np.max(sim)
+            bins = np.linspace(sim_min, sim_max, 41)
+            
+            fig2, axs = plt.subplots(2, 1, figsize=(6, 10), sharex=True)
+            axs[0].hist(sim[self.group.unit_id[:,2] == 1], bins = bins, color = 'blue', alpha = 0.9, density = False, label = 'Exci.')
+            axs[1].hist(sim[self.group.unit_id[:,2] == 2], bins = bins, color = 'red', alpha = 0.9, density = False, label = 'Inhi.')
+            for i in range(2):
+                axs[i].axvline(x = sim_orig, color = 'black', linestyle = '--', linewidth = 3)
+                axs[i].legend(fontsize = 20)
+                axs[i].set_ylabel('Count', fontsize = 24)
+                axs[i].xaxis.set_major_formatter(FormatStrFormatter('%.3f'))
+                axs[i].tick_params(axis='both', labelsize=20)
+            axs[1].set_xlabel('Subspace Similarity', fontsize = 24)
+            plt.tight_layout()
+            
+            unit_type = []
+            for unit_idx in range(len(self.group.pop_response)):
+                response = np.zeros((2, 10))
+                for gap_idx in range(10):
+                    gap_dur = round(self.group.gaps[gap_idx]*1000)   
+                    #on-set
+                    background = self.group.pop_response[unit_idx, gap_idx, 50:100].reshape(10, -1).sum(axis=1)
+                    mean, std = np.mean(background), np.std(background)
+                    on_response = self.group.pop_response[unit_idx, gap_idx, 100:150].reshape(10, -1).sum(axis=1)
+                    for i in range(10-1):
+                        if on_response[i] > mean + 3*std and on_response[i+1] > mean + 3*std: 
+                            response[0, gap_idx] = 1
+                            break
+                        if on_response[i] < mean - 3*std and on_response[i+1] < mean - 3*std: 
+                            response[0, gap_idx] = 1
+                            break
+                    #offset
+                    background = self.group.pop_response[unit_idx, gap_idx, 400+gap_dur:450+gap_dur].reshape(10, -1).sum(axis=1)
+                    mean, std = np.mean(background), np.std(background)
+                    off_response = self.group.pop_response[unit_idx, gap_idx, 460+gap_dur:560+gap_dur].reshape(20, -1).sum(axis=1)
+                    for i in range(20-1):
+                        if off_response[i] > mean + 3*std and off_response[i+1] > mean + 3*std: 
+                            response[1, gap_idx] = 1
+                            break
+                        if off_response[i] < mean - 3*std and off_response[i+1] < mean - 3*std: 
+                            response[1, gap_idx] = 1
+                            break
+                if np.mean(response[0]) > 0.6 and np.mean(response[1]) < 0.7: unit_type.append('on')
+                if np.mean(response[0]) < 0.7 and np.mean(response[1]) > 0.6: unit_type.append('off')
+                if np.mean(response[0]) > 0.6 and np.mean(response[1]) > 0.6: unit_type.append('both')
+                if np.mean(response[0]) < 0.7 and np.mean(response[1]) < 0.7: unit_type.append('none')
+            self.group.unit_type = np.array(unit_type)
+
+            fig3, axs = plt.subplots(4, 1, figsize=(6, 20), sharex=True)
+            axs[0].hist(sim[self.group.unit_type == 'on'], bins = bins, color = 'blue', alpha = 0.9, density = False, label = 'On')
+            axs[1].hist(sim[self.group.unit_type == 'off'], bins = bins, color = 'red', alpha = 0.9, density = False, label = 'Off')
+            axs[2].hist(sim[self.group.unit_type == 'both'], bins = bins, color = 'green', alpha = 0.9, density = False, label = 'Both')
+            axs[3].hist(sim[self.group.unit_type == 'none'], bins = bins, color = 'brown', alpha = 0.9, density = False, label = 'None')
             for i in range(4):
-                for j in range(i,4):
-                    period1, period2 = periods[i], periods[j]
-                    period1_pca = analysis.PCA(period1, multiple_gaps = False)
-                    period2_pca = analysis.PCA(period2, multiple_gaps = False)
-                    angles = analysis.calculate_principal_angles(period1_pca.loading[:dim].T, period2_pca.loading[:dim].T)
-                    sim[i,j] = 1 - np.mean(angles) / (np.pi/2)
-                    sim[j,i] = sim[i,j]
-            sns.heatmap(sim, ax = axs[count], cmap = 'binary', vmax = 1, square=True,cbar = True)
+                axs[i].axvline(x = sim_orig, color = 'black', linestyle = '--', linewidth = 3)
+                axs[i].legend(fontsize = 20)
+                axs[i].set_ylabel('Count', fontsize = 24)
+                axs[i].xaxis.set_major_formatter(FormatStrFormatter('%.3f'))
+                axs[i].tick_params(axis='both', labelsize=20)
+            axs[3].set_xlabel('Subspace Similarity', fontsize = 24)
+            plt.tight_layout()
             
-            axs[count].set_aspect('auto')
-            axs[count].set_xticklabels(['N1', 'N2', 'Gap', 'Post-N2'], rotation = 0, fontsize = 14)
-            axs[count].set_yticklabels(['N1', 'N2', 'Gap', 'Post-N2'], fontsize = 14)
-            axs[count].set_title('Gap = ' + str(round(self.gaps[gap_type]*1000)) +'ms', fontsize = 16)
-        plt.tight_layout()
-        return fig
+            return fig2, fig3
+            
+        
+        fig1 = Plot_Multi_Gaps()
+        fig2, fig3 = Plot_Single_Neuron_Effect()
+        
+        return fig1, fig2, fig3
 
     def Plot_OnOff_Period(self):
         def Project_to_Vector(matrix, vector):
@@ -585,10 +677,10 @@ class Latent:
                 if Flip(onset_exclude_noise_pca.score[i], 0, 25): onset_exclude_noise_pca.score[i] *= -1
                 if Flip(offset_exclude_noise_pca.score[i], 25, 50): offset_exclude_noise_pca.score[i] *= -1
                 
-                axs[i,0].plot(onset_pca.score[i], color = 'black', label = 'Original Resp.')
-                axs[i,1].plot(offset_pca.score[i], color = 'black', label = 'Original Resp.')
-                axs[i,0].plot(onset_exclude_noise_pca.score[i], color = 'red', label = 'Exclude Sust. Noise Resp.')
-                axs[i,1].plot(offset_exclude_noise_pca.score[i], color = 'red', label = 'Exclude Sust. Noise Resp.')
+                axs[i,0].plot(onset_pca.score[i], color = 'black', label = 'Original Subspace')
+                axs[i,1].plot(offset_pca.score[i], color = 'black', label = 'Original Subspace')
+                axs[i,0].plot(onset_exclude_noise_pca.score[i], color = 'red', label = 'Subspace Exclude Sust. Noise Resp.')
+                axs[i,1].plot(offset_exclude_noise_pca.score[i], color = 'red', label = 'Subspace Exclude Sust. Noise Resp.')
                 
                 axs[i,0].set_ylabel('PC #'+str(i+1), fontsize = 20)
                 for j in range(2):
@@ -596,8 +688,8 @@ class Latent:
                     axs[i,j].legend(fontsize = 16)
                 axs[i,0].set_xticks([0,50, 100],['0','50','100'])
                 axs[i,1].set_xticks([0,50, 100],['0','50','100'])
-            axs[0,0].set_title('On-Response', fontsize = 22)
-            axs[0,1].set_title('Off-Response', fontsize = 22)
+            axs[0,0].set_title('On-Response Projection', fontsize = 22)
+            axs[0,1].set_title('Off-Response Projection', fontsize = 22)
             axs[2,0].set_xlabel('Time (ms)', fontsize = 20)
             axs[2,1].set_xlabel('Time (ms)', fontsize = 20)
             plt.tight_layout()
@@ -612,16 +704,16 @@ class Latent:
             x = gaussian_filter1d(onset_pca.score[PC[0]], sigma=sigma)
             y = gaussian_filter1d(onset_pca.score[PC[1]], sigma=sigma)
             z = gaussian_filter1d(onset_pca.score[PC[2]], sigma=sigma)
-            axs[0].plot(x, y, z, label = 'Original', color = 'black')
+            axs[0].plot(x, y, z, label = 'Original Subspace', color = 'black')
             axs[0].scatter(x[0], y[0], z[0], color = 'darkblue', s = 30)
             x_lim.append([min(x), max(x)])
             y_lim.append([min(y), max(y)])
             z_lim.append([min(z), max(z)])
 
             x = gaussian_filter1d(onset_exclude_noise_pca.score[PC[0]], sigma=sigma)
-            y = gaussian_filter1d( onset_exclude_noise_pca.score[PC[1]], sigma=sigma)
+            y = gaussian_filter1d(onset_exclude_noise_pca.score[PC[1]], sigma=sigma)
             z = gaussian_filter1d(onset_exclude_noise_pca.score[PC[2]], sigma=sigma)
-            axs[0].plot(x, y, z, label = 'Exclude Noise Resp', color = 'red')
+            axs[0].plot(x, y, z, label = 'Subspace Exclude Noise Resp', color = 'red')
             axs[0].scatter(x[0], y[0], z[0], color = 'darkblue', s = 30, label = 'Start')
             axs[0].scatter(0,0,0, color = 'green', s = 30, label = 'Origin')
             x_lim.append([min(x), max(x)])
@@ -633,7 +725,7 @@ class Latent:
             x = gaussian_filter1d(offset_pca.score[PC[0]], sigma=sigma)
             y = gaussian_filter1d(offset_pca.score[PC[1]], sigma=sigma)
             z = gaussian_filter1d(offset_pca.score[PC[2]], sigma=sigma)
-            axs[1].plot(x, y, z, label = 'Original', color = 'black')
+            axs[1].plot(x, y, z, label = 'Original Subspace', color = 'black')
             axs[1].scatter(x[0], y[0], z[0], color = 'darkblue', s = 30)
             x_lim.append([min(x), max(x)])
             y_lim.append([min(y), max(y)])
@@ -642,15 +734,15 @@ class Latent:
             x = gaussian_filter1d(offset_exclude_noise_pca.score[PC[0]], sigma=sigma)
             y = gaussian_filter1d(offset_exclude_noise_pca.score[PC[1]], sigma=sigma)
             z = gaussian_filter1d(offset_exclude_noise_pca.score[PC[2]], sigma=sigma)
-            axs[1].plot(x, y, z, label = 'Exclude Noise Resp', color = 'red')
+            axs[1].plot(x, y, z, label = 'Subspace Exclude Noise Resp', color = 'red')
             axs[1].scatter(x[0], y[0], z[0], color = 'darkblue', s = 30, label = 'Start')
             axs[1].scatter(0,0,0, color = 'green', s = 30, label = 'Origin')
             x_lim.append([min(x), max(x)])
             y_lim.append([min(y), max(y)])
             z_lim.append([min(z), max(z)])
 
-            axs[0].set_title('On-Response', fontsize = 20)
-            axs[1].set_title('Off-Response', fontsize = 20)
+            axs[0].set_title('On-Response Projection', fontsize = 20)
+            axs[1].set_title('Off-Response Projection', fontsize = 20)
 
             x_lim, y_lim, z_lim = np.array(x_lim), np.array(y_lim), np.array(z_lim)
             xlim = (min(x_lim[:,0]),max(x_lim[:,1]))
@@ -697,19 +789,19 @@ class Latent:
             fig5, axs = plt.subplots(6, 1, figsize=(24, 18), gridspec_kw={'height_ratios': [30, 30, 30, 30, 30, 1]})
             PCs = 20
             sns.heatmap(Align_PC_Sign(onset_exclude_noise_pca.loading @ data)[:PCs], ax = axs[0], cmap = 'RdBu', cbar = False)  
-            axs[0].set_ylabel('On-Resp Subspace', fontsize = 16)
+            axs[0].set_ylabel('On-Resp w/o Noise', fontsize = 20)
             
             sns.heatmap(Align_PC_Sign(offset_exclude_noise_pca.loading @ data)[:PCs], ax = axs[1], cmap = 'RdBu', cbar = False)  
-            axs[1].set_ylabel('Off-Resp Subspace', fontsize = 16)
+            axs[1].set_ylabel('Off-Resp w/o Noise', fontsize = 20)
 
             sns.heatmap(Align_PC_Sign(gap_pca.loading @ data)[:PCs], ax = axs[2], cmap = 'RdBu', cbar = False)  
-            axs[2].set_ylabel('Gap Subspace', fontsize = 16)
+            axs[2].set_ylabel('Gap', fontsize = 20)
 
             sns.heatmap(Align_PC_Sign(gap_no_onset_pca.loading @ data)[:PCs], ax = axs[3], cmap = 'RdBu', cbar = False)  
-            axs[3].set_ylabel('Gap-Excl-OnResp Subspace', fontsize = 16)
+            axs[3].set_ylabel('Gap w/o On-Resp', fontsize = 20)
 
             sns.heatmap(Align_PC_Sign(gap_no_offset_pca.loading @ data)[:PCs], ax = axs[4], cmap = 'RdBu', cbar = False)  
-            axs[4].set_ylabel('Gap-Excl-OffResp Subspace', fontsize = 16)
+            axs[4].set_ylabel('Gap w/o Off-Resp', fontsize = 20)
 
             sns.heatmap([self.group.gaps_label[gap_idx]], ax=axs[5], cmap='Blues', vmin=0, vmax=1, cbar=False)
             for i in range(6):
@@ -723,13 +815,13 @@ class Latent:
         gap_idx = 9
         gap_dur = round(self.group.gaps[gap_idx]*1000+350)
 
-        onset = self.group.pop_response_stand[:,gap_idx,100:200] # first 100 ms of noise1
-        offset = self.group.pop_response_stand[:,gap_idx,100+gap_dur:100+gap_dur+100] # first 100 ms of post-N2 silence
+        onset = self.group.pop_response_stand[:,gap_idx,100:200] # first 100 ms of noise1, with delay
+        offset = self.group.pop_response_stand[:,gap_idx,100+gap_dur:100+gap_dur+100] # first 100 ms of post-N2 silence, with delay
         noise = self.group.pop_response_stand[:,gap_idx,250:350] # last 100 ms of noise1
         gap = self.group.pop_response_stand[:,gap_idx,350:gap_dur]
         
-        gap_no_onset = self.group.pop_response_stand[:,gap_idx,350:gap_dur] -  np.mean(onset, axis = 1)[:, np.newaxis]
-        gap_no_offset = self.group.pop_response_stand[:,gap_idx,350:gap_dur] -  np.mean(offset, axis = 1)[:, np.newaxis]
+        gap_no_onset = gap -  np.mean(onset, axis = 1)[:, np.newaxis]
+        gap_no_offset = gap -  np.mean(offset, axis = 1)[:, np.newaxis]
         
         onset_projection = Project_to_Vector(onset.T, np.mean(noise, axis = 1))
         onset_exclude_noise = onset - onset_projection
@@ -811,7 +903,7 @@ class Latent:
                 right_upper_ax.set_position([pos.x0, pos.y0 + pos.height*2/35, pos.width, pos.height * 33/35])
                 right_lower_ax.set_position([pos.x0, pos.y0, pos.width, pos.height*1/35])
 
-            for count, gap_idx in enumerate([0, 6, 9]):
+            for count, gap_idx in enumerate([2, 4, 9]):
                 # Left panel: square heatmap
                 sim = np.zeros((5,5))
                 for i in range(5):
@@ -822,8 +914,8 @@ class Latent:
                         sim[j,i] = sim[i,j]
                 sns.heatmap(sim, ax = left_axes[count], cmap = 'binary', vmin=0, vmax=1, square=True, cbar = False)
                 left_axes[count].set_aspect('auto')
-                left_axes[count].set_xticklabels(['Noise1', 'Noise2', 'N2-On', 'N2-Both', 'Silence'], rotation = 0, fontsize = 13)
-                left_axes[count].set_yticklabels(['Noise1', 'Noise2', 'N2-On', 'N2-Both', 'Silence'], fontsize = 13)
+                left_axes[count].set_xticklabels(['Noise1', 'Noise2', 'N2 w/o On', 'N2 w/o Both', 'Silence'], rotation = 0, fontsize = 11)
+                left_axes[count].set_yticklabels(['Noise1', 'Noise2', 'N2 w/o On', 'N2 w/o Both', 'Silence'], fontsize = 11)
                 left_axes[count].set_ylabel('Gap = ' + str(round(self.group.gaps[gap_idx]*1000)) +'ms', fontsize = 24)
 
                 data = self.group.pop_response_stand[:, gap_idx, :]
@@ -1346,7 +1438,7 @@ class System:
                     traj = simulate_trajectory(W, start, dt = 1, n_steps = n_steps)
                     for i in range(len(traj)-1):
                         axs.plot3D(traj[i:i+2,0], traj[i:i+2,1], traj[i:i+2,2], 
-                                color=plt.cm.viridis(colors[i]), 
+                                color=plt.cm.plasma(colors[i]), 
                                 alpha=0.6)
                     axs.scatter(*start, color=point_color, s=30)
 
@@ -1359,13 +1451,13 @@ class System:
             
             #Draw fixed points
             fix_point = np.linalg.solve(W, np.zeros((3,1)))
-            axs[0].scatter(fix_point[0,0],fix_point[1,0],fix_point[2,0], color = 'brown', s = 30, label = 'Fixed Point')
             near_stable_points = []
             for i in [-0.1, 0, 0.1]:
                 for j in [-0.1, 0, 0.1]:
                     for k in [-0.1, 0, 0.1]:
                         near_stable_points.append(np.array([i+fix_point[0,0],j+fix_point[1,0],k+fix_point[2,0]]))
             axs[0] = Draw_Random_Trajectory(0, near_stable_points, W, 100, 'darkblue', axs[0]) 
+            axs[0].scatter(fix_point[0,0],fix_point[1,0],fix_point[2,0], color = 'brown', s = 30, label = 'Fixed Point')
             
             for i in range(3):
                 real, imag = np.real(eigenvals[i]), np.imag(eigenvals[i])
@@ -1408,7 +1500,14 @@ class System:
                 ext_input = self.model.OnS[time]*self.model.OnRe + self.model.OffS[time]*self.model.OffRe
                 fix_point = np.linalg.solve(W, -ext_input)
                 axs[1].scatter(fix_point[0,0],fix_point[1,0],fix_point[2,0], color = 'saddlebrown', s = 30)
-
+            axs[1].scatter([], [], color = 'saddlebrown', s = 30, label = 'Fixed Point of Noise')
+            OnFix = - np.linalg.inv(W) @ self.model.OnRe
+            OffFix = - np.linalg.inv(W) @ self.model.OffRe
+            axs[1].quiver(0, 0, 0, OnFix[0,0], OnFix[1,0], OnFix[2,0],  color='saddlebrown', arrow_length_ratio=0.1, alpha = 0.5)
+            axs[1].quiver(0, 0, 0, OffFix[0,0], OffFix[1,0], OffFix[2,0],  color='sandybrown', arrow_length_ratio=0.3, alpha = 0.3)
+            angle = analysis.calculate_vector_angle(OnFix.reshape(1,-1)[0], OffFix.reshape(1,-1)[0])
+            axs[1].scatter([], [], color = 'saddlebrown', s = 30, label = 'Angle: ' + str(round(angle,1)))
+            
             for time in [350, 355, 370, 390, 420, 500, 600]:
                 axs[2].scatter(PC1[time],PC2[time],PC3[time], color = 'magenta', s = 30)
                 axs[2] = Draw_Random_Trajectory(time, [np.array([PC1[time],PC2[time],PC3[time]])], W, 200, 'magenta', axs[2])
@@ -1416,10 +1515,12 @@ class System:
                 ext_input = self.model.OnS[time]*self.model.OnRe + self.model.OffS[time]*self.model.OffRe
                 fix_point = np.linalg.solve(W, -ext_input)
                 axs[2].scatter(fix_point[0,0],fix_point[1,0],fix_point[2,0], color = 'sandybrown', s = 30)
+            axs[2].scatter([], [], color = 'sandybrown', s = 30, label = 'Fixed Point of Gap')
+            axs[2].quiver(0, 0, 0, OnFix[0,0], OnFix[1,0], OnFix[2,0],  color='saddlebrown', arrow_length_ratio=0.1, alpha = 0.3)
+            axs[2].quiver(0, 0, 0, OffFix[0,0], OffFix[1,0], OffFix[2,0],  color='sandybrown', arrow_length_ratio=0.3, alpha = 0.5)
+            axs[2].scatter([], [], color = 'sandybrown', s = 30, label = 'Angle: ' + str(round(angle,1)))
             
             for i in range(1,3):
-                axs[1].scatter([], [], color = 'saddlebrown', s = 30, label = 'Fixed Point of Noise')
-                axs[2].scatter([], [], color = 'sandybrown', s = 30, label = 'Fixed Point of Silence')
                 axs[i].scatter([], [], color = 'magenta', s = 30, label = 'Trajectory Points')
                 axs[i].set_xlim((-1,3))
                 axs[i].set_ylim((-0.5,2))
