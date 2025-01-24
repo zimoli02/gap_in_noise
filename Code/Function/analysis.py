@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import copy
 
 import pickle
-import scipy.stats as stats
+import scipy.stats as stats 
 from scipy.stats import sem
 from scipy.ndimage import gaussian_filter1d
 from scipy.optimize import curve_fit
@@ -229,6 +229,7 @@ class HMM:
         self.parameters = None
         self.states = None
         self.TransM = None
+        self.model_loglikelihood = None
         self.loglikelihood = None
         self.kl_divergence = None
         self.ConnecM = None
@@ -238,8 +239,7 @@ class HMM:
         # Fit Models
         fitting_input = self.observation.T
         self.model = ssm.HMM(self.n_state, len(fitting_input[0]), observations="gaussian")
-        lls = self.model.fit(fitting_input, method="em", num_iters=50, init_method="kmeans")
-        
+        self.model_loglikelihood = self.model.fit(fitting_input, method="em", num_iters=50, init_method="kmeans")
         self.parameters = self.model.observations.params
         #np.save('../../SocialData/HMMStates/Params_' + self.mouse.type + "_" + self.mouse.mouse + '.npy', self.parameters)
         

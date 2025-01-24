@@ -6,12 +6,7 @@ from tqdm import tqdm
 import pickle
 import copy 
 
-def Flip(PC):
-    max_idx = np.argsort(abs(PC)[100:125])[::-1]
-    if PC[100:125][max_idx[0]] < 0: return True 
-    else: return False
-
-def Set_Params(model, groupname):
+def Set_Params(model, groupname, n_states = 2):
     if groupname == 'WT_HL':
         model.Nt = np.array([[0.3],[0.4],[0.3]]) 
         model.W = np.array([
@@ -87,126 +82,25 @@ def Set_Params(model, groupname):
         model.tau_I_off, model.tau_I_off_coef = 5, 1.8
         model.tau_A_off, model.tau_A_off_coef = 50, 0.01
         model.delay_off, model.delay_off_coef = 10, 1
-
-
-def Infer_Parameters(model):
-    def Infer_Single_Units(unit):
-        W = torch.tensor(np.array([-0.01, -0.01, -0.01]), dtype=torch.float32, requires_grad=True)
-        OnRe = torch.tensor(1, dtype=torch.float32, requires_grad=True)
-        OffRe = torch.tensor(0.5, dtype=torch.float32, requires_grad=True)
-        Nt = torch.tensor(0.5, dtype=torch.float32, requires_grad=True)
-        tau_I_on_coef = torch.tensor(model.tau_I_on_coef, dtype=torch.float32, requires_grad=True)
-        tau_A_on_coef = torch.tensor(model.tau_A_on_coef, dtype=torch.float32, requires_grad=True)
-        tau_I_off_coef = torch.tensor(model.tau_I_off_coef, dtype=torch.float32, requires_grad=True)
-        tau_A_off_coef = torch.tensor(model.tau_A_off_coef, dtype=torch.float32, requires_grad=True)
-        delay_on_coef = torch.tensor(model.delay_on_coef, dtype=torch.float32, requires_grad=True)
-        delay_off_coef = torch.tensor(model.delay_off_coef, dtype=torch.float32, requires_grad=True)
-        
-        optimizer = torch.optim.Adam([
-            W, OnRe, OffRe,Nt, 
-            tau_I_on_coef, tau_A_on_coef, tau_I_off_coef, tau_A_off_coef, delay_on_coef, delay_off_coef
-        ], lr=0.01)
-        scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.7, patience=3, min_lr=1e-5, verbose=True)
-        
-        # Number of iterations
-        num_iterations = 2000
-        
-        # Set threshold for minimum change in loss
-        patience = 5  # Number of iterations to wait
-        min_delta = 1e-5  # Minimum change in loss to be considered significant
-        train_patience_counter = 0
-        
-        # Optimization loop
-        train_loss = []
-        total_steps = num_iterations * (model.train_end - model.train_start)
-        with tqdm(total=total_steps, desc="Training", unit="step") as pbar:
-            for iter in range(num_iterations):
-                optimizer.zero_grad()  # Zero the gradients for each iteration
-                
-                OnS = model.Get_Input_torch(
-                    model.gap_idx, 
-                    model.tau_I_on * tau_I_on_coef, 
-                    model.tau_A_on * tau_A_on_coef, 
-                    model.delay_on * delay_on_coef, 
-                    invert=False
-                )
-                
-                OffS = model.Get_Input_torch(
-                    model.gap_idx, 
-                    model.tau_I_off * tau_I_off_coef, 
-                    model.tau_A_off * tau_A_off_coef, 
-                    model.delay_off * delay_off_coef,
-                    invert=True
-                )
-
-                # Initialize N with zeros (as a tensor)
-                U = torch.zeros(1, model.train_end - model.train_start)
-                U[0, [0]] = PCs[unit][model.train_start]
-                
-                # Calculate N over time steps
-                for t in range(1,  model.train_end - model.train_start):
-                    if unit == 0:
-                        U[0, [t]] = U[0, [t-1]] + (W[0]*U[0, [t-1]] + W[1]*PCs[1][model.train_start + t-1] + W[2]*PCs[2][model.train_start + t-1] + OnRe*OnS[model.train_start + t-1] + OffRe*OffS[model.train_start + t-1])*Nt
-                    if unit == 1:
-                        U[0, [t]] = U[0, [t-1]] + (W[0]*PCs[0][model.train_start + t-1] + W[1]*U[0, [t-1]] + W[2]*PCs[2][model.train_start + t-1]  + OnRe*OnS[model.train_start + t-1] + OffRe*OffS[model.train_start + t-1])*Nt
-                    if unit == 2:
-                        U[0, [t]] = U[0, [t-1]] + (W[0]*PCs[0][model.train_start + t-1] + W[1]*PCs[1][model.train_start + t-1] + W[2]*U[0, [t-1]] + OnRe*OnS[model.train_start + t-1] + OffRe*OffS[model.train_start + t-1])*Nt
-                    pbar.update(1)
-                    
-                # Compute MSE loss
-                loss = torch.mean((U - PCs[unit][model.train_start:model.train_end]) ** 2)
-                train_loss.append(loss.item())
-                if iter % 50 == 0: print(f'Iter {iter}, Training Loss: {round(loss.item(), 5)}')
-
-                # Backpropagate
-                loss.backward()
-                optimizer.step()  # Update parameters
-                scheduler.step(loss) # Update learning rate based on loss
-
-                if iter > 2:
-                    if  abs(train_loss[-1] - train_loss[-2]) < min_delta:
-                        train_patience_counter += 1
-                        if train_patience_counter >= patience:
-                            print(f"Converged: Train Loss hasn't improved by {min_delta} for {patience} iterations")
-                            break
-                    else:
-                        train_patience_counter = 0
-        model.tau_I_on_coef = tau_I_on_coef.detach().numpy()
-        model.tau_A_on_coef = tau_A_on_coef.detach().numpy()
-        model.tau_I_off_coef = tau_I_off_coef.detach().numpy()
-        model.tau_A_off_coef = tau_A_off_coef.detach().numpy()
-        model.delay_on_coef = delay_on_coef.detach().numpy()
-        model.delay_off_coef = delay_off_coef.detach().numpy()
-
-        print('----------------Iter ' + str(iter) + '----------------')
-        print('Integration for On-response = ' + str(model.tau_I_on * model.tau_I_on_coef) + 'ms')
-        print('Adaptation for On-response = ' + str(model.tau_A_on * model.tau_A_on_coef) + 'ms')
-        print('Delay for On-response = ' + str(model.delay_on * model.delay_on_coef) + 'ms')
-        print("")
-        print('Integration for Off-response = ' + str(model.tau_I_off * model.tau_I_off_coef) + 'ms')
-        print('Adaptation for Off-response = ' + str(model.tau_A_off * model.tau_A_off_coef) + 'ms')
-        print('Delay for Off-response = ' + str(model.delay_off * model.delay_off_coef) + 'ms')
-
-        
-        return W.detach().numpy(), OnRe.detach().numpy(), OffRe.detach().numpy(), Nt.detach().numpy()
-        
-    PCs_np = model.PCs  
-    PCs = [torch.tensor(PCs_np[i], dtype=torch.float32) for i in range(3)]
     
-    for i in range(3):
-        W, OnRe, OffRe, Nt = Infer_Single_Units(i)
-        for j in range(3):
-            model.W[i,j] = W[j]
-        model.OnRe[i] = OnRe
-        model.OffRe[i] = OffRe
-        model.Nt[i] = Nt
+    W = model.W
+    np.random.seed(random.randint(1, 1000))  # For reproducibility
+    model.W = np.array([W + np.random.normal(0, 0.01, (3,3)) for _ in range(n_states)])
     
-    return model
+    model.R = np.random.normal(0, 0.1, (n_states-1, 3))
+    model.r = np.random.normal(0, 0.1, (n_states-1, 1))
+
+def Flip(PC):
+    max_idx = np.argsort(abs(PC)[100:125])[::-1]
+    if PC[100:125][max_idx[0]] < 0: return True 
+    else: return False
     
-class DynamicalSystem:
-    def __init__(self, group, train_gap_idx):
+    
+class ssDynamicalSystem:
+    def __init__(self, group, n_states, train_gap_idx):
         self.group = group 
         self.gap_idx = train_gap_idx 
+        self.n_states = n_states
         
         self.gap_dur = None
         self.PCs = None
@@ -220,6 +114,8 @@ class DynamicalSystem:
         self.W = None 
         self.OnRe = None 
         self.OffRe = None 
+        self.R = None 
+        self.r = None 
         
         self.S_on, self.S_off = 60, 10
         if self.group.hearing_type == 'HL': self.S_on = 75
@@ -233,35 +129,28 @@ class DynamicalSystem:
         self.delay_off, self.delay_off_coef = 10, 1
 
         self.N = np.zeros((3, len(self.times)))
+        self.z = np.zeros(len(self.times), dtype=int)
         
         self.train_gap_idx, self.train_start, self.train_end = 8, 50, 350 + 128+150
         self.validate_gap_idx, self.validate_start, self.validate_end = 9, 50, 350 + 256 + 150
         self.lr = 0.001
         if self.group.geno_type == 'WT' :self.lr = 0.01 
         
-        self.Set_Gap_Dependent_Params()
-        self.Init_Params()
-        
+        self.Set_Gap_Dependent_Params() # Initialize input
+        self.Init_Params()              # Initialize parameters    
         
     def Set_Gap_Dependent_Params(self):
         self.gap_dur = round(self.group.gaps[self.gap_idx]*1000)
         self.Get_PCs()
         
         self.OnS = self.Get_Input(self.gap_idx, self.tau_I_on * self.tau_I_on_coef, self.tau_A_on* self.tau_A_on_coef, round(self.delay_on * self.delay_on_coef), invert = False)
-        self.OffS = self.Get_Input(self.gap_idx, self.tau_I_off * self.tau_I_off_coef, self.tau_A_off * self.tau_A_off_coef, round(self.delay_off * self.delay_off_coef), invert = True)
-        
-    def Flip(self,PC):
-        max_idx = np.argsort(abs(PC)[100:125])[::-1]
-        if PC[100:125][max_idx[0]] < 0: return True 
-        else: return False
-        
+        self.OffS = self.Get_Input(self.gap_idx, self.tau_I_off * self.tau_I_off_coef, self.tau_A_off * self.tau_A_off_coef, round(self.delay_off * self.delay_off_coef), invert = True)    
+
     def Get_PCs(self):
         PC, PCs = [0,1,2],[]
         for j in range(len(PC)):
             scores = self.group.pca.score_per_gap[PC[j]]
-            
             score_per_gap = scores[self.gap_idx]
-            #score_per_gap = (score_per_gap-np.mean(score_per_gap[:100]))/np.max(abs(score_per_gap))
             if Flip(score_per_gap): score_per_gap = score_per_gap * (-1)
             PCs.append(score_per_gap)
         self.PCs = np.array(PCs)
@@ -431,26 +320,92 @@ class DynamicalSystem:
         
         if infer: 
             #self = Infer_Parameters(self)
-            self = Set_Params(self, self.group.geno_type + '_' + self.group.hearing_type)
+            self = Set_Params(self, self.group.geno_type + '_' + self.group.hearing_type, self.n_states)
+            
+    def StickBreakingLogReg(self, x, R, r):
+        def sigma(x):
+            return np.exp(x)/(1+np.exp(x))
         
+        mu = R@x.reshape(-1, 1) + r # Recurrence-Only, single R across all states
+        pi = np.zeros(self.n_states)
+        pi[self.n_states-1] = 1
+        for k in range(self.n_states-1):
+            pi[k] = sigma(mu[k,0])
+            if k>0:
+                for j in range(k):
+                    pi[k] *= 1 - sigma(mu[j,0])
+            pi[self.n_states-1] -= pi[k]
+        zt = np.argsort(pi)[::-1][0]
+        return int(zt)
+    
+    def StickBreakingLogReg_torch(self, x, R, r):
+        def sigma(x):
+            return torch.exp(x)/(1 + torch.exp(x))
+        
+        mu = R @ x.reshape(-1, 1) + r  # Recurrence-Only, single R across all states
+        pi = torch.zeros(self.n_states)
+        pi[self.n_states-1] = 1
+        
+        for k in range(self.n_states-1):
+            pi[k] = sigma(mu[k,0])
+            if k > 0:
+                for j in range(k):
+                    pi[k] *= 1 - sigma(mu[j,0])
+            pi[self.n_states-1] -= pi[k]
+        
+        zt = torch.argsort(pi, descending=True)[0]
+        return int(zt)
+
     def Optimize_Params(self):
+        def Calculate_Latent():
+            OnS = self.Get_Input_torch(
+                    self.gap_idx, 
+                    self.tau_I_on * tau_I_on_coef, 
+                    self.tau_A_on * tau_A_on_coef, 
+                    self.delay_on * delay_on_coef, 
+                    invert=False
+                )
+                
+            OffS = self.Get_Input_torch(
+                self.gap_idx, 
+                self.tau_I_off * tau_I_off_coef, 
+                self.tau_A_off * tau_A_off_coef, 
+                self.delay_off * delay_off_coef,
+                invert=True
+            )
+
+            # Initialize N with zeros (as a tensor)
+            N = torch.zeros((3, self.train_end - self.train_start))
+            
+            N[:,[0]] = PCs[:,[0]]
+            for t in range(1, self.train_end - self.train_start):
+                N[:, [t]] = N[:, [t-1]] + (W[z[t]] @ N[:, [t-1]] + OnRe * OnS[self.train_start + t-1] + OffRe * OffS[self.train_start + t-1]) * Nt
+                
+            return N
+            
         def Calculate_Validate_Loss():
             temp_self = copy.deepcopy(self)  # Creates a deep copy
             temp_self.gap_idx = self.validate_gap_idx
             temp_self.Set_Gap_Dependent_Params()
-
+            
+            z = np.zeros(len(self.times), dtype=int)
             temp_self.N = np.zeros((3, len(self.times)))
+            
+            z[0] = self.StickBreakingLogReg(temp_self.PCs[:, [0]], temp_self.R, temp_self.r)
             for t in range(1,len(self.times)):
-                temp_self.N[:,[t]] = temp_self.N[:,[t-1]] +(temp_self.W@temp_self.N[:,[t-1]] + temp_self.OnRe*temp_self.OnS[t-1] + temp_self.OffRe*temp_self.OffS[t-1])*self.Nt
+                z[t] = self.StickBreakingLogReg(temp_self.N[:,[t-1]], temp_self.R, temp_self.r)
+                temp_self.N[:,[t]] = temp_self.N[:,[t-1]] +(temp_self.W[z[t]]@temp_self.N[:,[t-1]] + temp_self.OnRe*temp_self.OnS[t-1] + temp_self.OffRe*temp_self.OffS[t-1])*self.Nt
 
             return np.mean((temp_self.N[:, self.validate_start:self.validate_end] 
                             - temp_self.PCs[:, self.validate_start:self.validate_end])**2)
 
         def Detach():
-            self.W = W.detach().numpy()
+            self.W =np.array([W[k].detach().numpy() for k in range(self.n_states)])
             self.OnRe = OnRe.detach().numpy()
             self.OffRe = OffRe.detach().numpy()
             self.Nt = Nt.detach().numpy()
+            self.R = R.detach().numpy()
+            self.r = r.detach().numpy()
             self.tau_I_on_coef = tau_I_on_coef.detach().numpy()
             self.tau_A_on_coef = tau_A_on_coef.detach().numpy()
             self.tau_I_off_coef = tau_I_off_coef.detach().numpy()
@@ -458,16 +413,14 @@ class DynamicalSystem:
             self.delay_on_coef = delay_on_coef.detach().numpy()
             self.delay_off_coef = delay_off_coef.detach().numpy()
         
-        self.gap_idx = self.train_gap_idx
-        self.Set_Gap_Dependent_Params()
-        PCs = torch.tensor(self.PCs[:3, self.train_start:self.train_end], dtype=torch.float32)
-
         # Initialize the parameters as torch tensors with requires_grad=True
-        W = torch.tensor(self.W, dtype=torch.float32, requires_grad=True)
+        W = [torch.tensor(self.W[k], dtype=torch.float32, requires_grad=True) for k in range(self.n_states)]
         OnRe = torch.tensor(self.OnRe, dtype=torch.float32, requires_grad=True)
         OffRe = torch.tensor(self.OffRe, dtype=torch.float32, requires_grad=True)
         Nt = torch.tensor(self.Nt, dtype=torch.float32, requires_grad=False)
-        
+        R = torch.tensor(self.R, dtype=torch.float32, requires_grad=False)
+        r = torch.tensor(self.r, dtype=torch.float32, requires_grad=False)
+
         ## Parameters for OnS and OffS computation
         tau_I_on_coef = torch.tensor(self.tau_I_on_coef, dtype=torch.float32, requires_grad=True)
         tau_A_on_coef = torch.tensor(self.tau_A_on_coef, dtype=torch.float32, requires_grad=True)
@@ -475,19 +428,26 @@ class DynamicalSystem:
         tau_A_off_coef = torch.tensor(self.tau_A_off_coef, dtype=torch.float32, requires_grad=True)
         delay_on_coef = torch.tensor(self.delay_on_coef, dtype=torch.float32, requires_grad=True)
         delay_off_coef = torch.tensor(self.delay_off_coef, dtype=torch.float32, requires_grad=True)
-
+        
+        # Initialize input and latents
+        self.gap_idx = self.train_gap_idx
+        self.Set_Gap_Dependent_Params()
+        PCs = torch.tensor(self.PCs[:3, self.train_start:self.train_end], dtype=torch.float32)
+        HMM = analysis.HMM(self.PCs[:3, self.train_start:self.train_end], state = self.n_states)
+        HMM.Fit_Model()
+        z = HMM.states
 
         # Define the optimizer
         optimizer = torch.optim.Adam([
-            W, OnRe, OffRe,
+            OnRe, OffRe, R, r,
             tau_I_on_coef, tau_A_on_coef, tau_I_off_coef, tau_A_off_coef, delay_on_coef, delay_off_coef
         ], lr=self.lr)
         scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.7, patience=3, verbose=True)
+        optimizers_W = [torch.optim.Adam([W[k]], lr=self.lr) for k in range(self.n_states)]
+        schedulers_W = [ReduceLROnPlateau(optimizers_W[k], mode='min', factor=0.7, patience=3, verbose=True) for k in range(self.n_states)]
 
-        
-        # Number of iterations
-        num_iterations = 1000
-        
+        num_iterations = 100
+            
         # Set threshold for minimum change in loss
         validate_patience, train_patience = 5, 5  # Number of iterations to wait
         min_delta = 1e-4  # Minimum change in loss to be considered significant
@@ -497,48 +457,28 @@ class DynamicalSystem:
 
         # Optimization loop
         self.train_loss, self.validate_loss = [], []
-        total_steps = num_iterations * (self.train_end - self.train_start)
-        with tqdm(total=total_steps, desc="Training", unit="step") as pbar:
+        with tqdm(total=num_iterations, desc="Training", unit="step") as pbar:
             for iter in range(num_iterations):
                 optimizer.zero_grad()  # Zero the gradients for each iteration
                 
-                OnS = self.Get_Input_torch(
-                    self.gap_idx, 
-                    self.tau_I_on * tau_I_on_coef, 
-                    self.tau_A_on * tau_A_on_coef, 
-                    self.delay_on * delay_on_coef, 
-                    invert=False
-                )
+                # Expectation Part
+                if iter > 0:
+                    for t in range(1, self.train_end - self.train_start):
+                        z[t] = self.StickBreakingLogReg_torch(PCs[:, [t-1]], R, r)
+                    z[0] = z[1]
                 
-                OffS = self.Get_Input_torch(
-                    self.gap_idx, 
-                    self.tau_I_off * tau_I_off_coef, 
-                    self.tau_A_off * tau_A_off_coef, 
-                    self.delay_off * delay_off_coef,
-                    invert=True
-                )
-
-                # Initialize N with zeros (as a tensor)
-                N = torch.zeros((3, self.train_end - self.train_start))
-
-                # Calculate N over time steps
-                N[:,[0]] = PCs[:,[0]]
-                for t in range(1, self.train_end - self.train_start):
-                    #noise = torch.normal(0, np.sqrt(0.001), size=(3, 1))  # Add Gaussian noise
-                    N[:, [t]] = N[:, [t-1]] + (W @ N[:, [t-1]] + OnRe * OnS[self.train_start + t-1] + OffRe * OffS[self.train_start + t-1]) * Nt
-                    pbar.update(1)
+                # Maximization Part
+                N = Calculate_Latent()
+                pbar.update(1)
 
                 # Compute MSE loss
+                    # Train
                 loss = torch.mean((N - PCs) ** 2)
                 self.train_loss.append(loss.item())
+                    # Validate
                 Detach()
                 self.validate_loss.append(Calculate_Validate_Loss())
                 if iter % 50 == 0: print(f'Iter {iter}, Training Loss: {round(loss.item(), 5)}, Validation Loss: {round(self.validate_loss[-1], 5)}')
-
-                # Backpropagate
-                loss.backward()
-                optimizer.step()  # Update parameters
-                scheduler.step(loss) # Update learning rate based on loss
 
                 if iter > 2:
                     if best_loss < self.validate_loss[-1]:
@@ -557,6 +497,17 @@ class DynamicalSystem:
                             break
                     else:
                         train_patience_counter = 0
+                        
+                # Backpropagate
+                    # Shared Parameters
+                loss.backward()
+                optimizer.step()  # Update parameters
+                scheduler.step(loss) # Update learning rate based on loss
+                    # State-Dependent
+                for scheduler_W, optimizer_W in zip(schedulers_W, optimizers_W):
+                    optimizer_W.step()
+                    scheduler_W.step(loss)
+                
 
         Detach()
         self.train_loss = np.array(self.train_loss)
@@ -570,6 +521,21 @@ class DynamicalSystem:
         print('Integration for Off-response = ' + str(self.tau_I_off * self.tau_I_off_coef) + 'ms')
         print('Adaptation for Off-response = ' + str(self.tau_A_off * self.tau_A_off_coef) + 'ms')
         print('Delay for Off-response = ' + str(self.delay_off * self.delay_off_coef) + 'ms')
+        
+    
+    def Run(self, noise = False):
+        self.Get_PCs()
+        self.OnS = self.Get_Input(self.gap_idx, self.tau_I_on * self.tau_I_on_coef, self.tau_A_on* self.tau_A_on_coef, round(self.delay_on * self.delay_on_coef), invert = False)
+        self.OffS = self.Get_Input(self.gap_idx, self.tau_I_off * self.tau_I_off_coef, self.tau_A_off * self.tau_A_off_coef, round(self.delay_off * self.delay_off_coef), invert = True)
+        
+        self.N = np.zeros((3, len(self.times)))
+        self.z = np.zeros(len(self.times), dtype=int)
+
+        for t in range(1,len(self.times)):
+            self.z[t] = self.StickBreakingLogReg(self.N[:, [t-1]], self.R, self.r)
+            self.N[:,[t]] = self.N[:,[t-1]] +(self.W[self.z[t]]@self.N[:,[t-1]] + self.OnRe*self.OnS[t-1] + self.OffRe*self.OffS[t-1])*self.Nt
+            if noise: self.N[:,[t]] = self.N[:,[t]] + np.random.normal(0, np.sqrt(0.0001), (3, 1))
+
 
     def Cross_Validate_Optimization(self):
         def Select_Period(length_session):
@@ -590,7 +556,7 @@ class DynamicalSystem:
         def Reset_Params():
             for i in range(len(param_groups)): setattr(self, param_groups[i], init_params[i])
 
-        num_session = 100
+        num_session = 2
         length_session = 500
         self.mse_per_session = []
         param_groups = ['W', 'OnRe', 'OffRe', 'tau_I_on_coef', 'tau_A_on_coef', 'tau_I_off_coef', 'tau_A_off_coef', 'delay_on_coef', 'delay_off_coef']
@@ -627,14 +593,14 @@ class DynamicalSystem:
                 'test_loss': test_loss
                 }
         
-            file_name = '/Volumes/Research/GapInNoise/Data/Model_New/'+ self.group.geno_type + '_' + self.group.hearing_type + '_' + str(session+1) + '.pkl'
+            '''file_name = '/Volumes/Research/GapInNoise/Data/Model_New/'+ self.group.geno_type + '_' + self.group.hearing_type + '_' + str(session+1) + '.pkl'
             with open(file_name, 'wb') as f:
                 pickle.dump(params, f)
 
             self.Set_Params_of_Least_Loss()
-            file_name = '/Volumes/Research/GapInNoise/Data/TrainedModel/'+ self.group.geno_type + '_' + self.group.hearing_type + '.pickle'
-            with open(file_name, 'wb') as file:
-                pickle.dump(self, file)
+            file_name = '/Volumes/Research/GapInNoise/Data/TrainedModel/'+ self.group.geno_type + '_' + self.group.hearing_type + '.pkl'
+            with open(file_name, 'wb') as f:
+                pickle.dump(self, f)'''
 
         self.Set_Params_of_Least_Loss()
         
@@ -645,39 +611,3 @@ class DynamicalSystem:
         self.train_loss =self.train_params[best_model_idx][-2]
         self.validate_loss = self.train_params[best_model_idx][-1]
     
-    def Set_Params_Median(self):
-        Train_Params = {'W':{}, 'OnRe':{}, 'OffRe':{}, 'tau_I_on_coef':{}, 'tau_A_on_coef':{},'delay_on_coef':{},'tau_I_off_coef':{}, 'tau_A_off_coef':{},'delay_off_coef':{}}
-        train_params_labels = ['W', 'OnRe', 'OffRe', 'tau_I_on_coef', 'tau_A_on_coef', 'delay_on_coef','tau_I_off_coef', 'tau_A_off_coef','delay_off_coef']
-        for train_params_label in train_params_labels: Train_Params[train_params_label] = []
-        for i in range(len(train_params_labels)):
-            for j in range(len(self.train_params)):
-                Train_Params[train_params_labels[i]].append(self.train_params[j][i])
-            Train_Params[train_params_labels[i]] = np.array(Train_Params[train_params_labels[i]])
-        
-        for rol in range(3):
-            for col in range(3):
-                self.W[rol, col] = np.median(Train_Params['W'][:,rol,col])
-
-        for rol in range(3):
-            self.OnRe[rol] = np.median(Train_Params['OnRe'][:,rol])
-            self.OffRe[rol] = np.median(Train_Params['OffRe'][:,rol])
-        
-        self.tau_I_on_coef = np.median(Train_Params['tau_I_on_coef'])
-        self.tau_A_on_coef = np.median(Train_Params['tau_A_on_coef'])
-        self.delay_on_coef = np.median(Train_Params['delay_on_coef'])
-
-        self.tau_I_off_coef = np.median(Train_Params['tau_I_off_coef'])
-        self.tau_A_off_coef = np.median(Train_Params['tau_A_off_coef'])
-        self.delay_off_coef = np.median(Train_Params['delay_off_coef'])
-            
-    def Run(self, noise = False):
-        self.Get_PCs()
-        self.OnS = self.Get_Input(self.gap_idx, self.tau_I_on * self.tau_I_on_coef, self.tau_A_on* self.tau_A_on_coef, round(self.delay_on * self.delay_on_coef), invert = False)
-        self.OffS = self.Get_Input(self.gap_idx, self.tau_I_off * self.tau_I_off_coef, self.tau_A_off * self.tau_A_off_coef, round(self.delay_off * self.delay_off_coef), invert = True)
-        
-        self.N = np.zeros((3, len(self.times)))
-        for t in range(1,len(self.times)):
-            self.N[:,[t]] = self.N[:,[t-1]] +(self.W@self.N[:,[t-1]] + self.OnRe*self.OnS[t-1] + self.OffRe*self.OffS[t-1])*self.Nt
-            if noise: self.N[:,[t]] = self.N[:,[t]] + np.random.normal(0, np.sqrt(0.0001), (3, 1))
-
-        

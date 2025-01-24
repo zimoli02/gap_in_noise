@@ -33,7 +33,7 @@ gpfapath = '/Volumes/Research/GapInNoise/Data/GPFA/'
 grouppath = '/Volumes/Research/GapInNoise/Data/Groups/'
 recordingpath = '/Volumes/Research/GapInNoise/Data/Recordings/'
 modelpath = '/Volumes/Research/GapInNoise/Data/TrainedModel/'
-
+newmodelpath = '/Volumes/Research/GapInNoise/Data/TrainedModel_ss/'
 @dataclass
 class DisplayParams:
     response_per_gap: bool = False
@@ -197,6 +197,8 @@ def Display_Group(params: DisplayParams, file_path):
                 else:
                     with open(modelpath + geno_type + '_' + hearing_type + '.pickle', 'rb') as file:
                         Model = pickle.load(file)
+                    with open(newmodelpath + geno_type + '_' + hearing_type + '.pkl', 'rb') as file:
+                        Model = pickle.load(file)
                     #Model.model.Set_Params_Median()
                     Model.model.Set_Params_of_Least_Loss()
                 
@@ -234,7 +236,7 @@ def main():
     #Display_Single_Recording(file_path = '../Images/SingleMouse/')
     
     params = DisplayParams(
-        principal_angle=True
+        on_gap_dependent=True
     )
     
     Display_Group(params, file_path = '../Images/')

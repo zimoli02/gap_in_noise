@@ -588,39 +588,6 @@ class Latent:
                 axs[i].tick_params(axis='both', labelsize=20)
             axs[1].set_xlabel('Subspace Similarity', fontsize = 24)
             plt.tight_layout()
-            
-            unit_type = []
-            for unit_idx in range(len(self.group.pop_response)):
-                response = np.zeros((2, 10))
-                for gap_idx in range(10):
-                    gap_dur = round(self.group.gaps[gap_idx]*1000)   
-                    #on-set
-                    background = self.group.pop_response[unit_idx, gap_idx, 50:100].reshape(10, -1).sum(axis=1)
-                    mean, std = np.mean(background), np.std(background)
-                    on_response = self.group.pop_response[unit_idx, gap_idx, 100:150].reshape(10, -1).sum(axis=1)
-                    for i in range(10-1):
-                        if on_response[i] > mean + 3*std and on_response[i+1] > mean + 3*std: 
-                            response[0, gap_idx] = 1
-                            break
-                        if on_response[i] < mean - 3*std and on_response[i+1] < mean - 3*std: 
-                            response[0, gap_idx] = 1
-                            break
-                    #offset
-                    background = self.group.pop_response[unit_idx, gap_idx, 400+gap_dur:450+gap_dur].reshape(10, -1).sum(axis=1)
-                    mean, std = np.mean(background), np.std(background)
-                    off_response = self.group.pop_response[unit_idx, gap_idx, 460+gap_dur:560+gap_dur].reshape(20, -1).sum(axis=1)
-                    for i in range(20-1):
-                        if off_response[i] > mean + 3*std and off_response[i+1] > mean + 3*std: 
-                            response[1, gap_idx] = 1
-                            break
-                        if off_response[i] < mean - 3*std and off_response[i+1] < mean - 3*std: 
-                            response[1, gap_idx] = 1
-                            break
-                if np.mean(response[0]) > 0.6 and np.mean(response[1]) < 0.7: unit_type.append('on')
-                if np.mean(response[0]) < 0.7 and np.mean(response[1]) > 0.6: unit_type.append('off')
-                if np.mean(response[0]) > 0.6 and np.mean(response[1]) > 0.6: unit_type.append('both')
-                if np.mean(response[0]) < 0.7 and np.mean(response[1]) < 0.7: unit_type.append('none')
-            self.group.unit_type = np.array(unit_type)
 
             fig3, axs = plt.subplots(4, 1, figsize=(6, 20), sharex=True)
             axs[0].hist(sim[self.group.unit_type == 'on'], bins = bins, color = 'blue', alpha = 0.9, density = False, label = 'On')
@@ -953,8 +920,10 @@ class Latent:
                 angles = analysis.calculate_principal_angles(period1_pca.loading[:5].T, period2_pca.loading[:5].T)
                 sim[count] = 1 - np.mean(angles) / (np.pi/2)
 
-            axs.plot(np.arange(10), sim, color = 'darkblue')
-            axs.set_xticks([0,2,4,6,8],labels= ['0', '2', '8', '32', '128'], fontsize = 20)
+            axs.plot(np.array([0,1,2,4,8,16,32,64,128,256]), sim, color = 'darkblue')
+            
+            #axs.set_xticks([0,2,4,6,8],labels= ['0', '2', '8', '32', '128'], fontsize = 20)
+            axs.set_xticks([0,50, 100, 150, 200, 250],labels= ['0', '50', '100', '150', '200', '250'], fontsize = 20)
             axs.set_yticks(np.arange(0.1, 0.7, 0.1),labels= ['0.1', '0.2', '0.3', '0.4', '0.5', '0.6'], fontsize = 20)
             axs.set_ylabel('Similarity Index', fontsize = 24)
             axs.set_xlabel('Gap (ms)', fontsize = 24)
