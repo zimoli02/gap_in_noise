@@ -31,9 +31,9 @@ class Group:
         self.gaps = [0., 0.001, 0.002, 0.004, 0.008, 0.016, 0.032, 0.064, 0.128, 0.256]
         self.gaps_label = self.Get_Gaps_Label()
         
-        self.unit_onset, self.unit_offset = [], []
         self.unit_type = np.array([])
         self.unit_id = np.array([[0, 0, 0]]) 
+        self.bkg_psth = None
         self.response_per_recording = self.Get_Response_per_Recording()
         self.pop_spikes = self.Get_Pop_Spikes()
         self.pop_response = self.Get_Pop_Response()
@@ -77,10 +77,12 @@ class Group:
             except FileNotFoundError:
                 recording = Recording(Exp_name)
             response_per_recording[Exp_name] = recording.response
-            self.unit_onset += recording.unit_onset
-            self.unit_offset += recording.unit_offset
             self.unit_type = np.concatenate((self.unit_type, recording.unit_type))
-            self.unit_id = np.concatenate((self.unit_id, recording.response['unit_id']))
+            self.unit_id = np.concatenate((self.unit_id, recording.unit_id))
+            if self.bkg_psth == None:
+                self.bkg_psth = recording.bkg_psth
+            else:
+                self.bkg_psth = np.concatenate((self.bkg_psth, recording.bkg_psth), axis=0)
         self.unit_id = self.unit_id[1:]
         return response_per_recording
     
@@ -99,21 +101,35 @@ class Group:
             meta_psth = np.concatenate((meta_psth,
                                         self.response_per_recording[Exp_name]['sig_psth'][:,:,:,:].mean(axis=2)),
                                        axis=0)
-        return meta_psth[2:]
+        
+        # Filter rows based on the standard deviation condition
+        filtered_meta_psth = []
+        for row in meta_psth[2:]:
+            if np.all(np.std(row[:, :100], axis=1) > 3):
+                filtered_meta_psth.append(row)
+
+        return np.array(filtered_meta_psth)
+
             
     def Get_Pop_Response_Standardized(self):
-        def Normalize(X): #standardize each row
+        def Normalize(pop_stand): #standardize each row
             # X: ndarray, shape (n_features, n_samples)
-            X = X[0]
+            #whole_std = max(abs(X-baseline_mean))
+            X = pop_stand.copy()
             baseline_mean = np.mean(X[0:100])
-            whole_std = max(abs(X-baseline_mean))
-            if whole_std == 0: return X - baseline_mean
-            return (X - baseline_mean) / whole_std
+            baseline_std = np.std(X[0:100])
+            for j in range(len(X)):
+                if abs(X[j]) > 1e-5:  
+                    if baseline_std == 0: X[j] -= baseline_mean
+                    else: X[j] = (X[j]-baseline_mean)/baseline_std
+            
+            return X
 
         meta_psth_z = np.zeros(self.pop_response.shape)
         for i in range(self.pop_response.shape[0]):
             for j in range(self.pop_response.shape[1]):
-                meta_psth_z[i,j] = Normalize(self.pop_response[i,j].reshape(1,-1)) # 1*1000
+                #meta_psth_z[i,j] = Normalize(self.pop_response[i,j,:]) # 1*1000
+                meta_psth_z[i,j] = self.pop_response[i,j,:]
                 
         return meta_psth_z
 
@@ -148,8 +164,8 @@ class Recording:
         self.gaps = [0., 0.001, 0.002, 0.004, 0.008, 0.016, 0.032, 0.064, 0.128, 0.256]
         self.Get_Info()
         
-        self.unit_onset, self.unit_offset = [], []
         self.unit_type = None
+        self.bkg_psth = None
         self.response = self.Get_Neural_Response()
         self.response_per_gap = self.Get_Neural_Response_per_Gap()
         
@@ -220,6 +236,7 @@ class Recording:
                 bkg_psth[idx_unit,i] = np.histogram(st,np.arange(0,3+bin,bin))[0]/bin
         bkg_mean = np.mean(bkg_psth.mean(axis=1),axis=1) # Response average to background noise for each unit
         bkg_std = np.std(bkg_psth.mean(axis=1),axis=1)   # Response std to background noise for each unit
+        self.bkg_psth = bkg_psth
 
         # Signal information
         gap_onset_ = self.gap_onset[:,1:]
@@ -248,8 +265,8 @@ class Recording:
                 spikes_per_gap.append(spikes_per_unit)
             spikes.append(spikes_per_gap)
 
-        sig_psth, unit_id = sig_psth[bkg_std>0], self.unit_id[bkg_std>0] #Only want responsive neurons?
-        return {'spike':spikes, 'sig_psth':sig_psth, 'unit_id':unit_id}
+        sig_psth, self.unit_id = sig_psth[bkg_std>0], self.unit_id[bkg_std>0] #Only want responsive neurons?
+        return {'spike':spikes, 'sig_psth':sig_psth}
     
     def Get_Neural_Response_per_Gap(self):      
         response_per_gap = []
@@ -262,66 +279,69 @@ class Recording:
         return np.array(response_per_gap)
     
     def Get_Pop_Response(self):
-        def Calculate_Z_Score(pre, post):
-            pre_mean, pre_std = np.mean(pre), np.std(pre)
-            post_mean = np.mean(post)
-            return (post_mean - pre_mean)/(pre_std + 1e-10)
-                
-            
-        def Calculate_Onset_Offset(matrix):
-            for i in range(len(matrix)):
-                self.unit_onset.append(Calculate_Z_Score(matrix[i][50:100], matrix[i][100:200]))
-                self.unit_offset.append(Calculate_Z_Score(matrix[i][400:450], matrix[i][460:560]))
-            
-            onset, offset = np.array(self.unit_onset), np.array(self.unit_offset)
-            self.unit_type = np.array(['none' for i in range(len(self.unit_onset))])
-            self.unit_type[np.where((onset > 3) & (offset < 3))] = 'on'
-            self.unit_type[np.where((onset < 3) & (offset > 3))] = 'off'
-            self.unit_type[np.where((onset > 3) & (offset > 3))] = 'both'
-            self.unit_type[np.where((onset < 3) & (offset < 3))] = 'none'
+        def Detect_Transient(trasient_psth, upper_thres, lower_thres):
+            # For the common case activity increasing with stim
+            flag = 0
+            for i in range(trasient_psth.shape[0]-1):
+                if trasient_psth[i]>=upper_thres:
+                    for j in range(i+1, trasient_psth.shape[0]-1):
+                        if trasient_psth[i] <= trasient_psth[j]:
+                            return 1
+
+            # For the rare case activity reducing with stim
+            if lower_thres>0:
+                for i in range(trasient_psth.shape[0]-1):
+                    if trasient_psth[i] < lower_thres:
+                        for j in range(i+1, trasient_psth.shape[0]-1):
+                            if trasient_psth[i] >= trasient_psth[j]:
+                                return 1
+            return flag
         
         def Calculate_Unit_Type(matrix):
             unit_type = []
             for unit_idx in range(len(matrix)):
                 response = np.zeros((2, 10))
                 for gap_idx in range(10):
-                    gap_dur = round(self.gaps[gap_idx]*1000)   
-                    #on-set
-                    background = matrix[unit_idx, gap_idx, 50:100].reshape(10, -1).sum(axis=1)
-                    mean, std = np.mean(background), np.std(background)
-                    on_response = matrix[unit_idx, gap_idx, 100:150].reshape(10, -1).sum(axis=1)
-                    for i in range(10-1):
-                        if on_response[i] > mean + 3*std and on_response[i+1] > mean + 3*std: 
-                            response[0, gap_idx] = 1
-                            break
-                        if on_response[i] < mean - 3*std and on_response[i+1] < mean - 3*std: 
-                            response[0, gap_idx] = 1
-                            break
-                    #offset
-                    background = matrix[unit_idx, gap_idx, 400+gap_dur:450+gap_dur].reshape(10, -1).sum(axis=1)
-                    mean, std = np.mean(background), np.std(background)
-                    off_response = matrix[unit_idx, gap_idx, 460+gap_dur:560+gap_dur].reshape(20, -1).sum(axis=1)
-                    for i in range(20-1):
-                        if off_response[i] > mean + 3*std and off_response[i+1] > mean + 3*std: 
-                            response[1, gap_idx] = 1
-                            break
-                        if off_response[i] < mean - 3*std and off_response[i+1] < mean - 3*std: 
-                            response[1, gap_idx] = 1
-                            break
+                    gap_dur = round(self.gaps[gap_idx])
+                    
+                    on_background = self.bkg_psth[gap_idx,unit_idx,:]
+                    #on_background = matrix[i, gap_idx, 50:100].reshape(10, -1).sum(axis=1)/5
+                    on_period = matrix[i, gap_idx, 50:150].reshape(20, -1).sum(axis=1)/5
+                    mean, std = np.mean(on_background), np.std(on_background)
+                    flag = Detect_Transient(on_period[10:], mean + 3*std, mean - 3*std)
+                    response[0, gap_idx]  = flag
+
+                    off_background = matrix[i, gap_idx, 400+gap_dur:450+gap_dur].reshape(10, -1).sum(axis=1)/5
+                    off_period = matrix[i, gap_idx, 400+gap_dur:560+gap_dur].reshape(32, -1).sum(axis=1)/5
+                    mean, std = np.mean(off_background), np.std(off_background)
+                    flag = Detect_Transient(off_period[12:], mean + 2*std, mean - 2*std)
+                    response[1, gap_idx] = flag
                 if np.mean(response[0]) > 0.6 and np.mean(response[1]) < 0.7: unit_type.append('on')
                 if np.mean(response[0]) < 0.7 and np.mean(response[1]) > 0.6: unit_type.append('off')
                 if np.mean(response[0]) > 0.6 and np.mean(response[1]) > 0.6: unit_type.append('both')
                 if np.mean(response[0]) < 0.7 and np.mean(response[1]) < 0.7: unit_type.append('none')
-            self.unit_type = np.array(unit_type)
+            return np.array(unit_type)
         
             
         meta_psth = np.zeros((2, 10, 1000))
         meta_psth = np.concatenate((meta_psth,
                                     self.response['sig_psth'][:,:,:,:].mean(axis=2)),
                                     axis=0)
-        #Calculate_Onset_Offset(meta_psth[2:][:,0,:])
-        Calculate_Unit_Type(meta_psth[2:])
-        return meta_psth[2:]
+        
+        # Filter rows based on the standard deviation condition
+        filtered_meta_psth = []
+        filtered_unit_id = []
+        for i in range(len(meta_psth[2:])):
+            row = meta_psth[2:][i]
+            if np.all(np.std(row[:, :100], axis=1) > 3):
+                filtered_meta_psth.append(row)
+                filtered_unit_id.append(self.unit_id[i])
+        filtered_meta_psth = np.array(filtered_meta_psth)
+        filtered_unit_id = np.array(filtered_unit_id)
+        
+        self.unit_id = filtered_unit_id
+        self.unit_type = Calculate_Unit_Type(filtered_meta_psth)
+        return filtered_meta_psth
             
     def Get_Pop_Response_Standardized(self):
         def Normalize(X): #Normalize each row

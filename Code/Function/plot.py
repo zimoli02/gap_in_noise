@@ -2,17 +2,21 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 from matplotlib.gridspec import GridSpec
 from matplotlib.ticker import MultipleLocator
 from matplotlib.ticker import FormatStrFormatter
 
+from scipy import stats
 from scipy.ndimage import gaussian_filter1d
 from scipy.signal import savgol_filter
 from scipy.interpolate import UnivariateSpline
+
 from statsmodels.nonparametric.smoothers_lowess import lowess
 
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.cluster import KMeans
+
 import warnings
 warnings.filterwarnings('ignore', category=FutureWarning)
 
@@ -607,9 +611,9 @@ class Latent:
             
         
         fig1 = Plot_Multi_Gaps()
-        fig2, fig3 = Plot_Single_Neuron_Effect()
+        #fig2, fig3 = Plot_Single_Neuron_Effect()
         
-        return fig1, fig2, fig3
+        return fig1
 
     def Plot_OnOff_Period(self):
         def Project_to_Vector(matrix, vector):
@@ -1118,33 +1122,18 @@ class Decoder:
             PCs = self.Get_PCs(gap_idx)
             X = PCs.T  
             y = self.group.gaps_label[gap_idx]
-            reg = LinearRegression()
+            reg = LogisticRegression()
             reg.fit(X, y) 
-            s = reg.predict(X)
-            return s 
+            s = reg.predict_proba(X)[:, 1] 
+            return s  
         
-        def Threshold_Prediction(s):
-            kmeans = KMeans(n_clusters=3, random_state=42)
-            labels = kmeans.fit_predict(np.array(s[:700]).reshape(-1, 1))
-            centers = kmeans.cluster_centers_
-            sort_idx =np.argsort(centers.reshape(1,-1))[0]
-            boundary = (centers[sort_idx[0]][0] + centers[sort_idx[1]][0])/2
-            noises = np.zeros(len(s))
-            for t in range(len(s)):
-                if s[t] > boundary: noises[t] = 1 
-            return noises, boundary
-            
         gaps = [3, 9]
         fig, axs = plt.subplots(1, 2, figsize = (42, 6))
         for i in range(len(gaps)):
             gap_idx = gaps[i]
             
             s = Get_Prediction(gap_idx)
-            s_thresholded, boundary = Threshold_Prediction(s)
-            
             axs[i].plot(s, label = 's(t)')
-            axs[i].plot(s_thresholded, color = 'red', label = 'Predicted Noise')
-            axs[i].axhline(y = boundary, color = 'grey', linestyle = ':')
             ymin, ymax = axs[i].get_ylim()
             mask = self.group.gaps_label[gap_idx] == 1
             axs[i].fill_between(np.arange(len(self.group.gaps_label[gap_idx])), ymin, ymax, where=mask, color = 'dimgrey', alpha = 0.1, label = 'True Noise')
@@ -1697,7 +1686,92 @@ class System:
 
         return fig
     
+
+class PlotSubspace:
+    def __init__(self, Subspace):
+        self.Subspace = Subspace
+
+    def Draw_Similarity_Index(self):
+        def style_3d_ax(ax):
+            ax.set_xticks([0,1], labels = [0,1])
+            ax.set_yticks([0,1], labels = [0,1])
+            ax.set_zticks([0,1], labels = [0,1])
+            ax.tick_params(axis = 'both', labelsize = 20)
+            
+            axs.set_xlim((0,1))
+            axs.set_ylim((0,1))
+            axs.set_zlim((0,1))
+
+            ax.set_xlabel('Sustained Noise', fontsize = 24)
+            ax.set_ylabel('Onset', fontsize = 24)
+            ax.set_zlabel('Offset', fontsize = 24)
+
+        gap_feature = self.Subspace.gap_feature.T
+        gap_x, gap_y, gap_z, gap_h = gap_feature[0], gap_feature[1], gap_feature[2], gap_feature[3]
+
+        fig_3D, axs = plt.subplots(1, 1, figsize=(15, 12), subplot_kw={'projection': '3d'})    
+        axs.scatter(gap_x, gap_y, gap_z, color = pal[:10], s = 60)
+        axs.plot(gap_x, gap_y, gap_z, color = 'red')
+        style_3d_ax(axs)
+        axs.view_init(elev=15, azim=-165)
+        plt.tight_layout()
+
+        fig_2D, axs = plt.subplots(1, 1, figsize=(8, 8))   
+        axs.plot(np.arange(10), gap_x, color = 'red', label = 'Sustained Noise')
+        axs.plot(np.arange(10), gap_h, color = 'purple', label = 'Sustained Silence')
+        axs.plot(np.arange(10), gap_y, color = 'blue', label = 'Onset')
+        axs.plot(np.arange(10), gap_z, color = 'green', label = 'Offset')
+        axs.legend(fontsize = 20)
+        axs.set_xticks([0,2,4,6,8], labels = [0,2,8,32,128])
+        axs.set_yticks([0,1], labels = [0,1])
+        axs.set_xlabel('Gap Duration (ms)', fontsize = 24)
+        axs.set_ylabel('Subspace Similarity', fontsize = 24)
+        axs.tick_params(axis = 'both', labelsize = 20)
+        plt.tight_layout()
+
+        return fig_3D, fig_2D
     
+    def Draw_Model_Prediction(self):
+        # Print model coefficients
+        standard_model = self.Subspace.model
+        print("Coefficients:", standard_model.coef_)
+        print("Intercept:", standard_model.intercept_)
+        print("R² Score:", self.Subspace.r2)
+
+        fig_scatter, axs = plt.subplots(1, 1, figsize=(8, 8))   
+        axs.scatter(np.arange(10), self.Subspace.gap_pred, color = 'red')
+        axs.plot(np.arange(10), np.arange(10), color = 'black', linestyle = ':')
+        axs.set_xticks([0,2,4,6,8], labels = [0,2,8,32,128])
+        axs.set_yticks([0,2,4,6,8], labels = [0,2,8,32,128])
+        axs.set_xlabel('Gap Duration (ms)', fontsize = 24)
+        axs.set_ylabel('Predicted Dap Duration', fontsize = 24)
+        axs.tick_params(axis = 'both', labelsize = 20)
+        plt.tight_layout()
+        
+        fig_shuffle_r2, axs = plt.subplots(1, 1, figsize=(8, 8))   
+        axs.hist(self.Subspace.r2_shuffle, color = 'blue', density = False, bins = 10)
+        axs.axvline(x = self.Subspace.r2, color = 'red', linestyle = '--')
+        axs.set_xticks([0, 0.2, 0.4, 0.6, 0.8, 1.0], labels = [0, 0.2, 0.4, 0.6, 0.8, 1.0])
+        #axs.set_yticks([0, 0.5, 1], labels = [0, 0.5, 1])
+        axs.set_xlabel('R$^2$', fontsize = 24)
+        axs.set_ylabel('Count', fontsize = 24)
+        axs.tick_params(axis = 'both', labelsize = 20)
+        plt.tight_layout()
+        
+        return fig_scatter, fig_shuffle_r2
+    
+    def Draw_R2_with_Different_Period(self):
+        period_lengths = np.arange(2, 101,1)
+        fig, axs = plt.subplots(1, 1, figsize=(8, 8))   
+        axs.plot(period_lengths, self.Subspace.R2_for_multi_length_period, color = 'black')
+        axs.set_xticks([0,50, 100], labels = [0,50, 100])
+        axs.set_yticks([0, 0.5, 1], labels = [0, 0.5, 1])
+        axs.set_xlabel('Period Length (ms)', fontsize = 24)
+        axs.set_ylabel('Prediction R$^2$', fontsize = 24)
+        axs.tick_params(axis = 'both', labelsize = 20)
+        plt.tight_layout()
+
+
 class Summary:
     def __init__(self, groups):
         self.groups = groups

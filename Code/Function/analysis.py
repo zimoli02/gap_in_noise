@@ -10,7 +10,10 @@ from scipy.stats import sem
 from scipy.ndimage import gaussian_filter1d
 from scipy.optimize import curve_fit
 from scipy.linalg import svd, orth
-from  sklearn.decomposition import PCA as SKPCA
+from sklearn.decomposition import PCA as SKPCA
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import r2_score
+
 
 from . import dynamicalsystem as ds
 
@@ -97,9 +100,43 @@ def calculate_principal_angles(A, B):
     
     return angles
 
+def Calculate_Similarity(s1, s2, method = 'Trace'):
+    if method == 'PrincipalAngle':
+        s1 = PCA(s1, multiple_gaps = False).loading.T
+        s2 = PCA(s2, multiple_gaps = False).loading.T
+        s1 = orth(s1[:,:5])
+        s2 = orth(s2[:,:5])
+
+        _, S, _ = svd(s1.T @ s2)
+        S = np.clip(S, -1, 1)
+        angles = np.arccos(S)
+        
+        return  1 - np.mean(angles) / (np.pi/2)
+    if method == 'Bhattacharyya':
+        return np.log(np.linalg.det(0.5*(s1+s2))/np.sqrt(np.linalg.det(s1)*np.linalg.det(s2)))
+    if method == 'WD_Bregman':
+        return (np.trace(np.linalg.inv(s1+ 1e-20)@s2)-np.log(np.linalg.det(s2)/np.linalg.det(s1)))
+    if method == 'Trace':
+        S1 = s1@(s1.T)/len(s1[0])
+        S2 = s2@(s2.T)/len(s2[0])
+        
+        S1_ = S1/np.trace(S1)
+        PR1 = np.trace(S1_)**2/(np.trace(S1_@S1_))
+        
+        S2_ = S2/np.trace(S2)
+        PR2 = np.trace(S2_)**2/(np.trace(S2_@S2_))
+        
+        return np.trace(S1_@S2_)*np.sqrt(PR1)*np.sqrt(PR2)
+
+def Center(data):
+    data_centered = []
+    for i in range(len(data)):
+        data_centered.append(data[i] - np.mean(data[i]))
+    return np.array(data_centered)
+
 class PCA:
     def __init__(self, data_stand, multiple_gaps = True):
-        self.data = data_stand
+        self.data = data_stand.copy()
         self.score = None 
         self.loading = None 
         self.variance = None
@@ -112,6 +149,7 @@ class PCA:
 
         
     def Run_PCA_Analysis(self):
+        self.data = Center(self.data)
         data = self.data.reshape(self.data.shape[0], -1)
         U, s, Vh = np.linalg.svd(data.T, full_matrices=False)
         
@@ -119,14 +157,112 @@ class PCA:
         self.variance = s_sqr/np.sum(s_sqr) 
         self.score = np.array([U.T[i] * s[i] for i in range(len(s))])
         self.loading = Vh
+        
+        # Flip
+        for i in range(len(self.loading)):
+            if np.mean(self.loading[i])<0 and np.mean(self.score[i]) < 0:
+                self.loading[i] *= -1
+                self.score[i] *= -1
     
     def Separate_Multiple_Gaps(self):
         valid_PC = min(5, self.score.shape[0])
         self.score_per_gap = self.score[:valid_PC].reshape(valid_PC, self.data.shape[1], self.data.shape[2])
-           
+
+
+class Subspace:
+    
+    def __init__(self, group):
+        self.group = group 
+        self.Set_Standard_Subspace(period_length = 100)
+    
+    def Set_Standard_Subspace(self, period_length = 100):
+        self.standard_sustained_period = self.group.pop_response_stand[:,0,350:350 + period_length]
+        self.standard_on_period = self.group.pop_response_stand[:, 0, 100: 100 + period_length]
+        self.standard_off_period = self.group.pop_response_stand[:, 0, 450: 450 + period_length]
+        self.standard_silence_period = self.group.pop_response_stand[:, 0, -period_length:]
+    
+    def Get_Coordinate(self, period):
+        x = Calculate_Similarity(Center(self.standard_sustained_period), Center(period), method = 'Trace')
+        y = Calculate_Similarity(Center(self.standard_on_period), Center(period), method = 'Trace')
+        z = Calculate_Similarity(Center(self.standard_off_period), Center(period), method = 'Trace')
+        h = Calculate_Similarity(Center(self.standard_silence_period), Center(period), method = 'Trace')
+        return x, y, z, h
+    
+    def Get_Coordinate_per_Gap(self, period_length = 100):
+        self.Set_Standard_Subspace(period_length = period_length)
+        gap_feature = []
+        for i in range(10):
+            period_offset = self.group.pop_response_stand[:, i, 350:350 + period_length]
+            x, y, z, h = self.Get_Coordinate(period_offset, period_length)
+            gap_feature.append(np.array([x,y,z,h]))
+        self.gap_feature = np.array(gap_feature)
+    
+    def Fit_Gap_Prediction_Model(self, period_length = 100, test_shuffle = True):
+        def Test_Model():
+            R2 = []
+            for j in range(100):
+                gap_feature = []
+                for i in range(10):
+                    random_idx = np.random.randint(0, len(self.Group.pop_response_stand), size = len(self.Group.pop_response_stand))
+                    period_offset = self.group.pop_response_stand[:, i, 350:350 + period_length][random_idx]
+                    x, y, z, h = self.Get_Coordinate(period_offset, period_length)
+                    gap_feature.append(np.array([x,y,z,h]))
+                feature = np.array(gap_feature)
+                prediction = np.arange(10)
+                model = LinearRegression()
+                model.fit(feature, prediction) 
+                gap_pred = model.predict(feature)
+
+                R2.append(r2_score(prediction, gap_pred))
+            return np.array(R2)
+        
+        self.Get_Coordinate_per_Gap(period_length)
+        feature = np.array([self.gap_x,self.gap_y, self.gap_z, self.gap_h]).T  
+        prediction = np.arange(10)
+        standard_model = LinearRegression()
+        standard_model.fit(feature, prediction) 
+        self.gap_pred = standard_model.predict(feature)
+        self.r2 = r2_score(prediction, self.gap_pred)
+        self.model = standard_model
+        
+        if test_shuffle: self.r2_shuffle = Test_Model()
+        
+    def Compare_Period_Length(self):
+        period_lengths = np.arange(2, 101,1)
+        self.MSE_for_multi_length_period, self.R2_for_multi_length_period = [], []
+
+        for period_length in period_lengths:
+            self.Set_Standard_Subspace(period_length = period_length)
+            feature = []
+            for i in range(10):
+                period_offset1  = self.group.pop_response_stand[:,i, 350:350 + period_length]
+                x, y, z, h = self.Get_Coordinate(period_offset1, period_length)
+                feature.append(np.array([x,y,z,h]))
+            
+            feature = np.array(feature)
+            prediction = np.arange(10)
+            model = LinearRegression()
+            model.fit(feature, prediction) 
+            gap_pred = model.predict(feature)
+
+            self.R2_for_multi_length_period.append(r2_score(prediction, gap_pred))
+            self.MSE_for_multi_length_period.append(np.mean((prediction - gap_pred) ** 2))
+    
+    def Get_Prediction_along_Trial(self, period_length = 100):
+        self.Fit_Gap_Prediction_Model(period_length)
+        self.Feature_along_Trial = np.zeros((10, 1000-period_length, 4))
+        self.Prediction_along_Trial = np.zeros((10, 1000-period_length))
+        for gap_idx in range(10):
+            for t in range(900):
+                period_offset1  = self.group.pop_response_stand[:, gap_idx, t:t + period_length]
+                x, y, z, h = self.Get_Coordinate(period_offset1, period_length)
+                self.Feature_along_Trial[gap_idx, t] = np.array([x, y, z, h])
+                self.Prediction_along_Trial[gap_idx, t] = self.model.predict(np.array([[x, y, z, h]]))
+
+         
 class Projection:
     def __init__(self, data, subspace):
-        self.data = data 
+        self.data = data
         self.subspace = subspace
         self.data_projection = keep_diag((subspace @ data.T)/ (subspace @ subspace.T + 1e-18)) @ subspace
         self.data_exclude_projection = self.data - self.projection

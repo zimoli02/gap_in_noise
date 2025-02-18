@@ -147,10 +147,10 @@ def Display_Group(params: DisplayParams, file_path):
     
             if params.principal_angle:
                 # Compare how similar two subspaces are by taking the average principal angles
-                fig1, fig2, fig3 = Plot_Latent.Plot_Principal_Angle(dim=5)
+                fig1= Plot_Latent.Plot_Principal_Angle(dim=5)
                 fig1.savefig(file_path_sub + 'Subspace/PrincipalAngle.png')
-                fig2.savefig(file_path_sub + 'Subspace/PrincipalAngle_LeaveOneOut.png')
-                fig3.savefig(file_path_sub + 'Subspace/PrincipalAngle_LeaveOneOut_onoff.png')
+                #fig2.savefig(file_path_sub + 'Subspace/PrincipalAngle_LeaveOneOut.png')
+                #fig3.savefig(file_path_sub + 'Subspace/PrincipalAngle_LeaveOneOut_onoff.png')
     
             if params.onoff:
                 fig1, fig2, fig3, fig4, fig5 = Plot_Latent.Plot_OnOff_Period()
@@ -236,7 +236,7 @@ def main():
     #Display_Single_Recording(file_path = '../Images/SingleMouse/')
     
     params = DisplayParams(
-        on_gap_dependent=True
+        decoder = True
     )
     
     Display_Group(params, file_path = '../Images/')
