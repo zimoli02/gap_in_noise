@@ -1688,8 +1688,9 @@ class System:
     
 
 class PlotSubspace:
-    def __init__(self, Subspace):
-        self.Subspace = Subspace
+    def __init__(self, Group, Subspace):
+        self.subspace = Subspace
+        self.group = Group
 
     def Draw_Similarity_Index(self):
         def style_3d_ax(ax):
@@ -1706,7 +1707,7 @@ class PlotSubspace:
             ax.set_ylabel('Onset', fontsize = 24)
             ax.set_zlabel('Offset', fontsize = 24)
 
-        gap_feature = self.Subspace.gap_feature.T
+        gap_feature = self.subspace.gap_feature.T
         gap_x, gap_y, gap_z, gap_h = gap_feature[0], gap_feature[1], gap_feature[2], gap_feature[3]
 
         fig_3D, axs = plt.subplots(1, 1, figsize=(15, 12), subplot_kw={'projection': '3d'})    
@@ -1733,13 +1734,13 @@ class PlotSubspace:
     
     def Draw_Model_Prediction(self):
         # Print model coefficients
-        standard_model = self.Subspace.model
+        standard_model = self.subspace.model
         print("Coefficients:", standard_model.coef_)
         print("Intercept:", standard_model.intercept_)
-        print("R² Score:", self.Subspace.r2)
+        print("R² Score:", self.subspace.r2)
 
         fig_scatter, axs = plt.subplots(1, 1, figsize=(8, 8))   
-        axs.scatter(np.arange(10), self.Subspace.gap_pred, color = 'red')
+        axs.scatter(np.arange(10), self.subspace.gap_pred, color = 'red')
         axs.plot(np.arange(10), np.arange(10), color = 'black', linestyle = ':')
         axs.set_xticks([0,2,4,6,8], labels = [0,2,8,32,128])
         axs.set_yticks([0,2,4,6,8], labels = [0,2,8,32,128])
@@ -1749,8 +1750,8 @@ class PlotSubspace:
         plt.tight_layout()
         
         fig_shuffle_r2, axs = plt.subplots(1, 1, figsize=(8, 8))   
-        axs.hist(self.Subspace.r2_shuffle, color = 'blue', density = False, bins = 10)
-        axs.axvline(x = self.Subspace.r2, color = 'red', linestyle = '--')
+        axs.hist(self.subspace.r2_shuffle, color = 'blue', density = False, bins = 10)
+        axs.axvline(x = self.subspace.r2, color = 'red', linestyle = '--')
         axs.set_xticks([0, 0.2, 0.4, 0.6, 0.8, 1.0], labels = [0, 0.2, 0.4, 0.6, 0.8, 1.0])
         #axs.set_yticks([0, 0.5, 1], labels = [0, 0.5, 1])
         axs.set_xlabel('R$^2$', fontsize = 24)
@@ -1763,13 +1764,58 @@ class PlotSubspace:
     def Draw_R2_with_Different_Period(self):
         period_lengths = np.arange(2, 101,1)
         fig, axs = plt.subplots(1, 1, figsize=(8, 8))   
-        axs.plot(period_lengths, self.Subspace.R2_for_multi_length_period, color = 'black')
+        axs.plot(period_lengths, self.subspace.R2_for_multi_length_period, color = 'black')
         axs.set_xticks([0,50, 100], labels = [0,50, 100])
         axs.set_yticks([0, 0.5, 1], labels = [0, 0.5, 1])
         axs.set_xlabel('Period Length (ms)', fontsize = 24)
         axs.set_ylabel('Prediction R$^2$', fontsize = 24)
         axs.tick_params(axis = 'both', labelsize = 20)
         plt.tight_layout()
+        return fig 
+    
+    def Draw_Prediction_Along_Trial(self, gap_idx = 9):
+        gap_dur = round(self.group.gaps[gap_idx]*1000)
+        mask = self.group.gaps_label[gap_idx] == 1
+        
+        trial_feature = self.subspace.Feature_along_Trial[gap_idx].T
+        trial_x, trial_y, trial_z, trial_h = trial_feature[0], trial_feature[1], trial_feature[2], trial_feature[3]
+        fig_feature, axs = plt.subplots(1, 1, figsize=(15, 4))   
+        axs.plot(np.arange(100, 1000), trial_x, color = 'red', label = 'Sustained Noise')
+        axs.plot(np.arange(100, 1000), trial_y, color = 'blue', label = 'Onset')
+        axs.plot(np.arange(100, 1000), trial_z, color = 'green', label = 'Offset')
+        axs.plot(np.arange(100, 1000), trial_h, color = 'purple', label = 'Silence')
+        axs.legend(fontsize = 20, loc = 'upper right')
+
+        ymin, ymax = axs.get_ylim()
+        axs.fill_between(np.arange(len(self.group.gaps_label[gap_idx])), ymin, ymax, where=mask, color = 'dimgrey', alpha = 0.1)
+
+        axs.set_xticks([0, 100, 350, 350+gap_dur, 450+gap_dur], labels = [0, 'N1', 'Gap', '', 'N2 Off'])
+        axs.set_yticks([0,1], labels = [0,1])
+        axs.set_xlabel('Time (ms)', fontsize = 24)
+        axs.set_ylabel('Subspace Similarity', fontsize = 24)
+        axs.tick_params(axis = 'both', labelsize = 20)
+        plt.tight_layout()
+        
+
+        trial_prediction = np.zeros(len(self.subspace.Prediction_along_Trial[gap_idx]))
+        for t in range(len(trial_prediction)):
+            if  self.subspace.Prediction_along_Trial[gap_idx][t] > 0:
+                trial_prediction[t] = np.exp2(self.subspace.Prediction_along_Trial[gap_idx][t] - 1)
+        
+        fig_prediction, axs = plt.subplots(1, 1, figsize=(15, 4))   
+        axs.plot(np.arange(100, 1000), trial_prediction, color = 'red')
+        axs.set_xticks([0,100, 350, 350+gap_dur, 450+gap_dur], labels = [0, 'N1', 'Gap', '', 'N2 Off'])
+        axs.set_yticks([0,100, 250], labels = [0,100, 250])
+
+        ymin, ymax = axs.get_ylim()
+        axs.fill_between(np.arange(len(self.group.gaps_label[gap_idx])), ymin, ymax, where=mask, color = 'dimgrey', alpha = 0.1)
+
+        axs.set_xlabel('Time (ms)', fontsize = 24)
+        axs.set_ylabel('Predicted Gap', fontsize = 24)
+        axs.tick_params(axis = 'both', labelsize = 20)
+        plt.tight_layout()
+        
+        return fig_feature, fig_prediction
 
 
 class Summary:

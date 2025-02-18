@@ -181,7 +181,7 @@ class Subspace:
         self.standard_off_period = self.group.pop_response_stand[:, 0, 450: 450 + period_length]
         self.standard_silence_period = self.group.pop_response_stand[:, 0, -period_length:]
     
-    def Get_Coordinate(self, period):
+    def Get_Coordinate(self, period, period_length=100):
         x = Calculate_Similarity(Center(self.standard_sustained_period), Center(period), method = 'Trace')
         y = Calculate_Similarity(Center(self.standard_on_period), Center(period), method = 'Trace')
         z = Calculate_Similarity(Center(self.standard_off_period), Center(period), method = 'Trace')
@@ -203,7 +203,7 @@ class Subspace:
             for j in range(100):
                 gap_feature = []
                 for i in range(10):
-                    random_idx = np.random.randint(0, len(self.Group.pop_response_stand), size = len(self.Group.pop_response_stand))
+                    random_idx = np.random.randint(0, len(self.group.pop_response_stand), size = len(self.group.pop_response_stand))
                     period_offset = self.group.pop_response_stand[:, i, 350:350 + period_length][random_idx]
                     x, y, z, h = self.Get_Coordinate(period_offset, period_length)
                     gap_feature.append(np.array([x,y,z,h]))
@@ -217,7 +217,7 @@ class Subspace:
             return np.array(R2)
         
         self.Get_Coordinate_per_Gap(period_length)
-        feature = np.array([self.gap_x,self.gap_y, self.gap_z, self.gap_h]).T  
+        feature = np.array(self.gap_feature)
         prediction = np.arange(10)
         standard_model = LinearRegression()
         standard_model.fit(feature, prediction) 

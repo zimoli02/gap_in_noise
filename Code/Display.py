@@ -34,6 +34,7 @@ grouppath = '/Volumes/Research/GapInNoise/Data/Groups/'
 recordingpath = '/Volumes/Research/GapInNoise/Data/Recordings/'
 modelpath = '/Volumes/Research/GapInNoise/Data/TrainedModel/'
 newmodelpath = '/Volumes/Research/GapInNoise/Data/TrainedModel_ss/'
+subspacepath = '/Volumes/Research/GapInNoise/Data/SubspaceAnalysis/'
 @dataclass
 class DisplayParams:
     response_per_gap: bool = False
@@ -48,6 +49,7 @@ class DisplayParams:
     principal_angle: bool = False
     onoff: bool = False
     on_gap_dependent: bool = False
+    subspace: bool = False
     decoder: bool = False
     model: bool = False
 
@@ -174,6 +176,33 @@ def Display_Group(params: DisplayParams, file_path):
                 # Compare the similarity between the N1 and N2 onset subspaces for all gaps
                 fig3.savefig(file_path_sub + 'OnOff/Gap_Dependent_OnResp_Similarity.png')
             
+            if params.subspace:
+                
+                try:
+                    with open(subspacepath + geno_type + '_' + hearing_type + '.pickle', 'rb') as file:
+                        Subspace = pickle.load(file)
+                except FileNotFoundError:
+                    Subspace = analysis.Subspace(Group)
+                    Subspace.Fit_Gap_Prediction_Model()
+                    Subspace.Compare_Period_Length()
+                    Subspace.Get_Prediction_along_Trial()
+                    
+                    with open(subspacepath + geno_type + '_' + hearing_type + '.pickle', 'wb') as file:
+                        pickle.dump(Subspace, file)
+                
+                Plot_Subspace = plot.PlotSubspace(Group, Subspace)
+                fig_3D, fig_2D = Plot_Subspace.Draw_Similarity_Index()
+                fig_scatter, fig_shuffle_r2 = Plot_Subspace.Draw_Model_Prediction()
+                fig_different_r2 = Plot_Subspace.Draw_R2_with_Different_Period()
+                fig_feature, fig_prediction = Plot_Subspace.Draw_Prediction_Along_Trial()
+                
+                fig_3D.savefig(file_path_sub + 'Subspace/Similarity_Index_3D.png')
+                fig_2D.savefig(file_path_sub + 'Subspace/Similarity_Index_2D.png')
+                fig_scatter.savefig(file_path_sub + 'Subspace/Model_Prediction_Scatter.png')
+                fig_shuffle_r2.savefig(file_path_sub + 'Subspace/Model_Prediction_Shuffle_R2.png')
+                fig_different_r2.savefig(file_path_sub + 'Subspace/R2_with_Different_Period.png')
+                fig_feature.savefig(file_path_sub + 'Subspace/Prediction_Along_Trial_Feature.png')
+                fig_prediction.savefig(file_path_sub + 'Subspace/Prediction_Along_Trial.png')
             
             if params.decoder:
                 fig1, fig2 = Plot_Decoder.Plot_Noise_Return_Silence()
@@ -236,7 +265,7 @@ def main():
     #Display_Single_Recording(file_path = '../Images/SingleMouse/')
     
     params = DisplayParams(
-        decoder = True
+        subspace = True
     )
     
     Display_Group(params, file_path = '../Images/')
