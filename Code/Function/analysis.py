@@ -168,7 +168,6 @@ class PCA:
         valid_PC = min(5, self.score.shape[0])
         self.score_per_gap = self.score[:valid_PC].reshape(valid_PC, self.data.shape[1], self.data.shape[2])
 
-
 class Subspace:
     
     def __init__(self, group):
