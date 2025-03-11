@@ -2,8 +2,10 @@
 
 The content in this repo contains the code of my undergraduate thesis started at September 2024.
 
-[neuron.py](Code/Function/neuron.py) contains data analysis on original spike train data.
+[data.py](Code/Function/data.py) contains some primary data analysis, including spike train extraction, primary auditory unit selection, computation of mean firing rate across trials with same conditions etc. 
 
-[result.py](Code/Function/result.py) contains plotting and some further analysis on the processed data.
+[subspace_analysis.py](Code/Function/subspace_analysis.py) contains the code for analyzing and plotting
+the result of comparing population subspace. [DisplaySubspaceAnalysis.py](Code/Function/DisplaySubspaceAnalysis.py) is the script used to run and display all plots related.
 
-[Display.py](Code/Display.py) is the script used to display all plots.
+[projection_analysis.py](Code/Function/projection_analysis.py) contains the code for analyzing and plotting
+the result of comparing neural data projections to the population subspace. [DisplayProjectionAnalysis.py](Code/Function/DisplayProjectionAnalysis.py) is the script used to run and display all plots related.
