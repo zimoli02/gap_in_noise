@@ -27,7 +27,7 @@ class Group:
         self.geno_type = geno_type 
         self.hearing_type = hearing_type
         self.label = geno_type + '_' + hearing_type
-        self.recording = self.Get_Group_Recording()
+        self.recording_names = self.Get_Group_Recording()
         self.gaps = [0., 0.001, 0.002, 0.004, 0.008, 0.016, 0.032, 0.064, 0.128, 0.256]
         self.gaps_label = self.Get_Gaps_Label()
         
@@ -70,19 +70,15 @@ class Group:
         
     def Get_Response_per_Recording(self):
         response_per_recording = {}
-        for Exp_name in self.recording:
+        for Exp_name in self.recording_names:
             try:
                 with open(recordingpath + Exp_name + '.pickle', 'rb') as file:
                     recording = pickle.load(file)
             except FileNotFoundError:
                 recording = Recording(Exp_name)
-            response_per_recording[Exp_name] = recording.response
+            response_per_recording[Exp_name] = recording
             self.unit_type = np.concatenate((self.unit_type, recording.unit_type))
             self.unit_id = np.concatenate((self.unit_id, recording.unit_id))
-            if self.bkg_psth == None:
-                self.bkg_psth = recording.bkg_psth
-            else:
-                self.bkg_psth = np.concatenate((self.bkg_psth, recording.bkg_psth), axis=0)
         self.unit_id = self.unit_id[1:]
         return response_per_recording
     
@@ -90,25 +86,19 @@ class Group:
         meta_spikes = []
         for gap_idx in range(len(self.gaps)):
             spikes = []
-            for Exp_name in self.recording:
-                spikes += self.response_per_recording[Exp_name]['spike'][gap_idx]
+            for Exp_name in self.recording_names:
+                spikes += self.response_per_recording[Exp_name].response['spike'][gap_idx]
             meta_spikes.append(spikes)
         return meta_spikes
     
     def Get_Pop_Response(self):
         meta_psth = np.zeros((2, 10, 1000))
-        for Exp_name in self.recording:
+        for Exp_name in self.recording_names:
             meta_psth = np.concatenate((meta_psth,
-                                        self.response_per_recording[Exp_name]['sig_psth'][:,:,:,:].mean(axis=2)),
+                                        self.response_per_recording[Exp_name].pop_response),
                                        axis=0)
-        
-        # Filter rows based on the standard deviation condition
-        filtered_meta_psth = []
-        for row in meta_psth[2:]:
-            if np.all(np.std(row[:, :100], axis=1) > 3):
-                filtered_meta_psth.append(row)
 
-        return np.array(filtered_meta_psth)
+        return np.array(meta_psth[2:])
 
             
     def Get_Pop_Response_Standardized(self):
@@ -173,8 +163,7 @@ class Recording:
         self.pop_response_stand = self.Get_Pop_Response_Standardized()
         
         self.Save_File()
-        
-    
+         
     def Get_Info(self):
         if mouse[mouse['Recording'] == self.rec_name]['L_Thres'].to_numpy()[0] > 42: self.hearing_type = 'HL'
         else: self.hearing_type = 'NonHL'
@@ -225,14 +214,17 @@ class Recording:
         # Background time
         bkg_t = np.zeros((round((np.shape(self.gap_onset)[1]-1)/15),2))
         for i in range(bkg_t.shape[0]):
-            bkg_t[i] = [self.gap_onset[:,round(1+i*3):round(4+i*3)].min()-3.5,
-                        self.gap_onset[:,round(1+i*3):round(4+i*3)].min()-0.5] # -3.5 to -0.5 s before the first gap
+            bkg_t[i] = [self.gap_onset[:,round(1+i*15):round(16+i*15)].min()-3.5,
+                        self.gap_onset[:,round(1+i*15):round(16+i*15)].min()-0.5] # -3.5 to -0.5 s before the first gap
 
         # Background response
         bkg_psth = np.zeros((len(self.unit),bkg_t.shape[0],len(np.arange(bkg_t[0,0],bkg_t[0,1],bin))))
         for idx_unit in range(len(self.unit)):
             for i in range(bkg_t.shape[0]):
-                st = self.sorting.get_unit_spike_train(unit_id=self.unit[idx_unit],start_frame=np.round(bkg_t[i,0]*samplerate),end_frame=np.round(bkg_t[i,1]*samplerate))/samplerate-bkg_t[i,0]
+                st = self.sorting.get_unit_spike_train(
+                    unit_id=self.unit[idx_unit],
+                    start_frame=np.round(bkg_t[i,0]*samplerate),
+                    end_frame=np.round(bkg_t[i,1]*samplerate))/samplerate-bkg_t[i,0]
                 bkg_psth[idx_unit,i] = np.histogram(st,np.arange(0,3+bin,bin))[0]/bin
         bkg_mean = np.mean(bkg_psth.mean(axis=1),axis=1) # Response average to background noise for each unit
         bkg_std = np.std(bkg_psth.mean(axis=1),axis=1)   # Response std to background noise for each unit
@@ -250,7 +242,7 @@ class Recording:
                         end_frame=np.round((gap_onset_[idx_gap, idx_trial]+0.9) * samplerate))/samplerate-(gap_onset_[idx_gap, idx_trial]-0.1)
                     sig_psth[idx_unit, idx_gap, idx_trial] = np.histogram(st, np.arange(0, 1 + bin, bin))[0]/bin
 
-        spikes = [] # 10*N_*45*t
+        spikes = [] # 10*Neuron*45*t
         for idx_gap in range(sig_psth.shape[1]):
             spikes_per_gap = []
             for idx_unit in range(len(self.unit)):
@@ -302,17 +294,16 @@ class Recording:
             for unit_idx in range(len(matrix)):
                 response = np.zeros((2, 10))
                 for gap_idx in range(10):
-                    gap_dur = round(self.gaps[gap_idx])
+                    gap_dur = round(self.gaps[gap_idx]*1000)
                     
-                    on_background = self.bkg_psth[gap_idx,unit_idx,:]
-                    #on_background = matrix[i, gap_idx, 50:100].reshape(10, -1).sum(axis=1)/5
-                    on_period = matrix[i, gap_idx, 50:150].reshape(20, -1).sum(axis=1)/5
+                    on_background = matrix[unit_idx, gap_idx, 50:100].reshape(10, -1).sum(axis=1)/5
+                    on_period = matrix[unit_idx, gap_idx, 50:150].reshape(20, -1).sum(axis=1)/5
                     mean, std = np.mean(on_background), np.std(on_background)
                     flag = Detect_Transient(on_period[10:], mean + 3*std, mean - 3*std)
-                    response[0, gap_idx]  = flag
+                    response[0, gap_idx] = flag
 
-                    off_background = matrix[i, gap_idx, 400+gap_dur:450+gap_dur].reshape(10, -1).sum(axis=1)/5
-                    off_period = matrix[i, gap_idx, 400+gap_dur:560+gap_dur].reshape(32, -1).sum(axis=1)/5
+                    off_background = matrix[unit_idx, gap_idx, 400+gap_dur:450+gap_dur].reshape(10, -1).sum(axis=1)/5
+                    off_period = matrix[unit_idx, gap_idx, 400+gap_dur:560+gap_dur].reshape(32, -1).sum(axis=1)/5
                     mean, std = np.mean(off_background), np.std(off_background)
                     flag = Detect_Transient(off_period[12:], mean + 2*std, mean - 2*std)
                     response[1, gap_idx] = flag
@@ -328,7 +319,7 @@ class Recording:
                                     self.response['sig_psth'][:,:,:,:].mean(axis=2)),
                                     axis=0)
         
-        # Filter rows based on the standard deviation condition
+        '''# Filter rows based on the standard deviation condition
         filtered_meta_psth = []
         filtered_unit_id = []
         for i in range(len(meta_psth[2:])):
@@ -341,7 +332,11 @@ class Recording:
         
         self.unit_id = filtered_unit_id
         self.unit_type = Calculate_Unit_Type(filtered_meta_psth)
-        return filtered_meta_psth
+        return filtered_meta_psth'''
+        
+        self.unit_type = Calculate_Unit_Type(meta_psth[2:])
+        return meta_psth[2:]
+        
             
     def Get_Pop_Response_Standardized(self):
         def Normalize(X): #Normalize each row

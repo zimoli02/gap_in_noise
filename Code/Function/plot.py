@@ -1781,12 +1781,12 @@ class PlotSubspace:
         trial_x, trial_y, trial_z, trial_h = trial_feature[0], trial_feature[1], trial_feature[2], trial_feature[3]
         fig_feature, axs = plt.subplots(1, 1, figsize=(15, 4))   
         axs.plot(np.arange(100, 1000), trial_x, color = 'red', label = 'Sustained Noise')
+        axs.plot(np.arange(100, 1000), trial_h, color = 'purple', label = 'Sustained Silence')
         axs.plot(np.arange(100, 1000), trial_y, color = 'blue', label = 'Onset')
         axs.plot(np.arange(100, 1000), trial_z, color = 'green', label = 'Offset')
-        axs.plot(np.arange(100, 1000), trial_h, color = 'purple', label = 'Silence')
-        axs.legend(fontsize = 20, loc = 'upper right')
+        axs.legend(fontsize = 16, loc = 'upper right')
 
-        ymin, ymax = axs.get_ylim()
+        ymin, ymax = 0, 1
         axs.fill_between(np.arange(len(self.group.gaps_label[gap_idx])), ymin, ymax, where=mask, color = 'dimgrey', alpha = 0.1)
 
         axs.set_xticks([0, 100, 350, 350+gap_dur, 450+gap_dur], labels = [0, 'N1', 'Gap', '', 'N2 Off'])
@@ -1800,16 +1800,17 @@ class PlotSubspace:
         trial_prediction = np.zeros(len(self.subspace.Prediction_along_Trial[gap_idx]))
         for t in range(len(trial_prediction)):
             if  self.subspace.Prediction_along_Trial[gap_idx][t] > 0:
-                trial_prediction[t] = np.exp2(self.subspace.Prediction_along_Trial[gap_idx][t] - 1)
+                #trial_prediction[t] = np.exp2(self.subspace.Prediction_along_Trial[gap_idx][t] - 1)
+                trial_prediction[t] = self.subspace.Prediction_along_Trial[gap_idx][t] - 1
         
         fig_prediction, axs = plt.subplots(1, 1, figsize=(15, 4))   
         axs.plot(np.arange(100, 1000), trial_prediction, color = 'red')
-        axs.set_xticks([0,100, 350, 350+gap_dur, 450+gap_dur], labels = [0, 'N1', 'Gap', '', 'N2 Off'])
-        axs.set_yticks([0,100, 250], labels = [0,100, 250])
 
         ymin, ymax = axs.get_ylim()
         axs.fill_between(np.arange(len(self.group.gaps_label[gap_idx])), ymin, ymax, where=mask, color = 'dimgrey', alpha = 0.1)
-
+        
+        axs.set_xticks([0, 100, 350, 350 + gap_dur, 450+gap_dur], labels = [0, 'N1', 'Gap', '', 'N2 Off'])
+        axs.set_yticks([0, 4, 8], labels = ['2$^0$', '2$^4$', '2$^8$'])
         axs.set_xlabel('Time (ms)', fontsize = 24)
         axs.set_ylabel('Predicted Gap', fontsize = 24)
         axs.tick_params(axis = 'both', labelsize = 20)

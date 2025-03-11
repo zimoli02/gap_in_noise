@@ -194,15 +194,18 @@ def Display_Group(params: DisplayParams, file_path):
                 fig_3D, fig_2D = Plot_Subspace.Draw_Similarity_Index()
                 fig_scatter, fig_shuffle_r2 = Plot_Subspace.Draw_Model_Prediction()
                 fig_different_r2 = Plot_Subspace.Draw_R2_with_Different_Period()
-                fig_feature, fig_prediction = Plot_Subspace.Draw_Prediction_Along_Trial()
+                fig_feature1, fig_prediction1 = Plot_Subspace.Draw_Prediction_Along_Trial(gap_idx=3)
+                fig_feature2, fig_prediction2 = Plot_Subspace.Draw_Prediction_Along_Trial(gap_idx=9)
                 
                 fig_3D.savefig(file_path_sub + 'Subspace/Similarity_Index_3D.png')
                 fig_2D.savefig(file_path_sub + 'Subspace/Similarity_Index_2D.png')
                 fig_scatter.savefig(file_path_sub + 'Subspace/Model_Prediction_Scatter.png')
                 fig_shuffle_r2.savefig(file_path_sub + 'Subspace/Model_Prediction_Shuffle_R2.png')
                 fig_different_r2.savefig(file_path_sub + 'Subspace/R2_with_Different_Period.png')
-                fig_feature.savefig(file_path_sub + 'Subspace/Prediction_Along_Trial_Feature.png')
-                fig_prediction.savefig(file_path_sub + 'Subspace/Prediction_Along_Trial.png')
+                fig_feature1.savefig(file_path_sub + 'Subspace/Prediction_Along_Trial_Feature1.png')
+                fig_prediction1.savefig(file_path_sub + 'Subspace/Prediction_Along_Trial1.png')
+                fig_feature2.savefig(file_path_sub + 'Subspace/Prediction_Along_Trial_Feature2.png')
+                fig_prediction2.savefig(file_path_sub + 'Subspace/Prediction_Along_Trial2.png')
             
             if params.decoder:
                 fig1, fig2 = Plot_Decoder.Plot_Noise_Return_Silence()

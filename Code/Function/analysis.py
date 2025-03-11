@@ -102,8 +102,8 @@ def calculate_principal_angles(A, B):
 
 def Calculate_Similarity(s1, s2, method = 'Trace'):
     if method == 'PrincipalAngle':
-        s1 = PCA(s1, multiple_gaps = False).loading.T
-        s2 = PCA(s2, multiple_gaps = False).loading.T
+        s1 = PCA(s1, multiple_gaps = False).loading
+        s2 = PCA(s2, multiple_gaps = False).loading
         s1 = orth(s1[:,:5])
         s2 = orth(s2[:,:5])
 
