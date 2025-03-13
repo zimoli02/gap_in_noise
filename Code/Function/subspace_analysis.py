@@ -3,8 +3,8 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 import copy
-
 import pickle
+
 import scipy.stats as stats 
 from scipy.stats import sem
 from scipy.ndimage import gaussian_filter1d
@@ -17,18 +17,18 @@ from sklearn.metrics import r2_score
 from matplotlib.lines import Line2D
 import matplotlib.gridspec as gridspec
 
-from . import dynamicalsystem as ds
 from . import analysis
 
-import sys
-from pathlib import Path
-current_script_path = Path(__file__).resolve()
-ssm_dir = current_script_path.parents[2] / 'SSM'
-sys.path.insert(0, str(ssm_dir))
-import ssm as ssm
 
 import warnings
 warnings.filterwarnings('ignore', category=FutureWarning)
+warnings.filterwarnings("ignore", message="The PostScript backend does not support transparency")
+
+plt.rcParams['savefig.dpi'] = 300
+plt.rcParams['savefig.format'] = 'eps'
+plt.rcParams['savefig.bbox'] = 'tight'
+plt.rcParams['savefig.transparent'] = True
+
 
 
 def Center(data):
@@ -96,6 +96,10 @@ def Calculate_Similarity(period1, period2, method = 'Trace', shuffle_method = Fa
         _, _, V1 = np.linalg.svd(period1.T, full_matrices=False)
         _, _, V2 = np.linalg.svd(period2.T, full_matrices=False)
         
+        k = min(10, len(V1))
+        V1 = V1[:k]
+        V2 = V2[:k]
+        
         if shuffle_method == 'Rotate':
             Q = Generate_Orthonormal_Matrix(len(V2))
             V2 = Q @ V2
@@ -154,7 +158,6 @@ def Calculate_Similarity(period1, period2, method = 'Trace', shuffle_method = Fa
         
         return np.trace(S1@S2) * (np.sqrt(PR1)*np.sqrt(PR2))
     
-
 def Compare_Subspace_Similarity(periods, method, shuffle_method = False):
     n_period = len(periods)
     sim = np.zeros((n_period, n_period))
@@ -245,8 +248,8 @@ def Draw_Standard_Subspace_Location(Group, subspace_name, period_length = 100, o
     fig, axs = plt.subplots(1,1,figsize = (20, 5))
     axs.plot(np.arange(1000), Sound, color = 'black')
     ymin, ymax = 10, 60
-    axs.fill_between(np.arange(len(gap_label)), ymin, ymax, where= gap_label == 1, color='dimgrey', alpha=0.2)
-    axs.fill_between(np.arange(len(gap_label))[start:end], ymin, ymax, where= gap_label[start:end] == on_off, color='red', alpha=0.5)
+    axs.fill_between(np.arange(len(gap_label)), ymin, ymax, where= gap_label == 1, color='lightgrey')
+    axs.fill_between(np.arange(len(gap_label))[start:end], ymin, ymax, where= gap_label[start:end] == on_off, color='lightcoral')
     axs.set_yticks([10,60])
     axs.tick_params(axis='both', labelsize = 28)
     axs.set_xlabel('Time (ms)', fontsize = 32)
@@ -258,7 +261,6 @@ def Draw_Standard_Subspace_Location(Group, subspace_name, period_length = 100, o
 
     return fig
     
-
 def Standard_Subspace_Comparison(Group, subspace_name, period_length = 100, offset_delay = 10):
     def Get_Data_Periods(subspace_name):
         periods = []
@@ -382,11 +384,11 @@ def Subspace_Similarity_for_All_Gaps(Group, subspace_name, methods, standard_per
             gap_dur = round(Group.gaps[gap_idx]*1000)
 
             for method in methods:
-                axs[gap_idx].plot(np.arange(check_point, 1000), Similarity_Indices[method], color = colors[method], linewidth = 6, alpha = 0.9)
+                axs[gap_idx].plot(np.arange(check_point, 1000), Similarity_Indices[method], color = colors[method], linewidth = 7, alpha = 0.9)
 
             ymin, ymax = 0, 1
             mask = Group.gaps_label[gap_idx] == 1
-            axs[gap_idx].fill_between(np.arange(len(Group.gaps_label[gap_idx])), ymin, ymax, where=mask, color = 'dimgrey', alpha = 0.1)
+            axs[gap_idx].fill_between(np.arange(len(Group.gaps_label[gap_idx])), ymin, ymax, where=mask, color = 'lightgrey')
 
             axs[gap_idx].set_xticks([], labels = [])
             axs[gap_idx].set_yticks([0,1], labels = ['', ''])
