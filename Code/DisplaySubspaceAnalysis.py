@@ -1,10 +1,6 @@
 import os
-from PIL import Image
 import pickle
-from dataclasses import dataclass
 
-import numpy as np
-import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
@@ -12,10 +8,7 @@ import sys
 from pathlib import Path
 root_dir = Path(__file__).parent.parent
 sys.path.append(str(root_dir))
-import Function.data as data
-import Function.analysis as analysis 
 import Function.subspace_analysis as subspace_analysis
-import Function.plot as plot
 
 
 basepath = '/Volumes/Zimo/Auditory/Data/'
@@ -25,6 +18,8 @@ gpfapath = '/Volumes/Research/GapInNoise/Data/GPFA/'
 modelpath = '/Volumes/Research/GapInNoise/Data/TrainedModel/'
 newmodelpath = '/Volumes/Research/GapInNoise/Data/TrainedModel_ss/'
 subspacepath = '/Volumes/Research/GapInNoise/Data/Subspace/'
+
+imagepath = '/Volumes/Research/GapInNoise/Images/Subspace/'
 
 import warnings
 warnings.filterwarnings("ignore", message="The PostScript backend does not support transparency; partially transparent artists will be rendered opaque")
@@ -47,29 +42,20 @@ def check_path(path):
         os.makedirs(path)
     return path
 
-@dataclass
-class DisplayParams:
-    Subspace_Comparison_Simulation: bool = False
-    Standard_Subspace_Comparison: bool = False
-    Standard_Subspace_Location: bool = False
-    Subspace_Comparison_per_Gap: bool = False
-    Subspace_Capacity_Determination: bool = False
-    Best_Subspace_Comparison: bool = False
-    Best_Subspace_Comparison_All_Group_Property: bool = False
-
 def SaveFig(fig, path):
     for fig_format in ['eps', 'png']:
         fig.savefig(path+f'.{fig_format}', dpi = fig_dpi)
         
-def Load_Groups():
+def Load_Groups(group_labels):
     Groups, Labels = {},[]
     for geno_type in ['WT', 'Df1']: 
         for hearing_type in ['NonHL', 'HL']:
             label = geno_type + '_' + hearing_type
-            Labels.append(label)
-            with open(grouppath + geno_type + '_' + hearing_type + '.pickle', 'rb') as file:
-                Group = pickle.load(file)
-            Groups[label] = Group
+            if label in group_labels:
+                Labels.append(label)
+                with open(grouppath + geno_type + '_' + hearing_type + '.pickle', 'rb') as file:
+                    Group = pickle.load(file)
+                Groups[label] = Group
     return Groups, Labels
 
 def Display_Subspace_Comparison_Simulation(n_observation = 100, n_feature = 50, file_path = '../Images/'):
@@ -134,34 +120,22 @@ def Display_Group(params, Group, Label, file_path = '../Images/'):
             
     
 
-def main():
+def main(subspace_params, group_labels):
 
-    params = DisplayParams(
-        Subspace_Comparison_Simulation = False,
-        Standard_Subspace_Location = False,
-        Standard_Subspace_Comparison = False,
-        Subspace_Comparison_per_Gap = False,
-        Subspace_Capacity_Determination = False,
-        Best_Subspace_Comparison = False,
-        Best_Subspace_Comparison_All_Group_Property = False
-    )
-    
-    Groups, Labels = Load_Groups()
+    Groups, Labels = Load_Groups(group_labels)
     for label in Labels:
-        if label != 'WT_NonHL': continue
         print(f'Start Analysing {label}')
-        Display_Group(params, Groups[label], label, file_path = '../Images/Subspace/')
+        Display_Group(subspace_params, Groups[label], label, file_path = imagepath)
         print('\n')
 
-
-    if params.Subspace_Comparison_Simulation:
-        Display_Subspace_Comparison_Simulation(n_observation = 100, n_feature = 50, file_path = '../Images/Subspace/')
+    if subspace_params.Subspace_Comparison_Simulation:
+        Display_Subspace_Comparison_Simulation(n_observation = 100, n_feature = 50, file_path = imagepath)
         
-    if params.Best_Subspace_Comparison_All_Group_Property:
+    if subspace_params.Best_Subspace_Comparison_All_Group_Property:
         for method in ['Trace', 'RV']:
             fig1, fig2 = subspace_analysis.Best_Subspace_Comparison_All_Group_Property(Groups, method)
-            SaveFig(fig1, '../Images/Subspace/BestSubspace/' + method + '/OnSummary')
-            SaveFig(fig2, '../Images/Subspace/BestSubspace/' + method + '/OffSummary')
+            SaveFig(fig1, imagepath + 'BestSubspace/' + method + '/OnSummary')
+            SaveFig(fig2, imagepath + 'BestSubspace/' + method + '/OffSummary')
 
 if __name__ == "__main__":
     main()
