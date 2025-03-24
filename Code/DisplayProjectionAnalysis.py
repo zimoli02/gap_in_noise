@@ -20,7 +20,7 @@ newmodelpath = '/Volumes/Research/GapInNoise/Data/TrainedModel_ss/'
 subspacepath = '/Volumes/Research/GapInNoise/Data/Subspace/'
 projectionpath = '/Volumes/Research/GapInNoise/Data/Projection/'
 
-imagepath = '/Volumes/Research/GapInNoise/Images/Subspace/'
+imagepath = '/Volumes/Research/GapInNoise/Images/Projection/'
 
 
 import warnings
@@ -44,8 +44,8 @@ def check_path(path):
         os.makedirs(path)
     return path
 
-
 def SaveFig(fig, path):
+    check_path(path)
     for fig_format in ['eps', 'png']:
         fig.savefig(path+f'.{fig_format}', dpi = fig_dpi)
 
@@ -62,9 +62,24 @@ def Load_Groups(group_labels):
     return Groups, Labels
 
 def Display_Group(params, Group, label, file_path = '../Images/Subspace/'):
-    if params.Projection:
-        fig = 
-
+    if params.Dimensionality_Reduction:
+        sub_file_path = file_path + label + '/'
+        fig_variance, fig_projection = projection_analysis.Low_Dim_Activity(Group)
+        SaveFig(fig_variance, sub_file_path + 'Variance')
+        SaveFig(fig_projection, sub_file_path + 'Projection')
+        print('Dimensionality Reduction Completed!')
+        plt.close('all')
+        
+    if params.Low_Dim_Activity_in_Space:
+        sub_file_path = file_path + label + '/'
+        fig_2d, fig_3d = projection_analysis.Low_Dim_Activity_Manifold(Group, short_gap = 5, long_gap = 9)
+        SaveFig(fig_2d[0], sub_file_path + '2D_Short_Gap')
+        SaveFig(fig_2d[1], sub_file_path + '2D_Long_Gap')
+        SaveFig(fig_3d[0], sub_file_path + '3D_Short_Gap')
+        SaveFig(fig_3d[1], sub_file_path + '3D_Long_Gap')
+        print('Low_Dim_Activity_in_Space Completed')
+        plt.close('all')
+        
 def main(subspace_params, group_labels):
 
     Groups, Labels = Load_Groups(group_labels)

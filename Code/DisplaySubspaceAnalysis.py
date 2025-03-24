@@ -43,6 +43,7 @@ def check_path(path):
     return path
 
 def SaveFig(fig, path):
+    check_path(path)
     for fig_format in ['eps', 'png']:
         fig.savefig(path+f'.{fig_format}', dpi = fig_dpi)
         
@@ -84,8 +85,8 @@ def Display_Group(params, Group, Label, file_path = '../Images/'):
         plt.close('all')
 
     if params.Subspace_Comparison_per_Gap:
-        #methods = ['Pairwise', 'CCA', 'RV', 'Trace']
-        methods = ['Trace']
+        methods = ['Pairwise', 'CCA', 'RV', 'Trace']
+        #methods = ['Trace']
         for subspace_name in ['On', 'Off', 'SustainedNoise', 'SustainedSilence']:
             sub_file_path = check_path(file_path + '/SubspaceEvolution/' + subspace_name + '/' + Label + '/')
             fig = subspace_analysis.Subspace_Similarity_for_All_Gaps(Group, subspace_name, methods, standard_period_length=50, period_length=50, offset_delay = 10)
@@ -115,8 +116,7 @@ def Display_Group(params, Group, Label, file_path = '../Images/'):
             SaveFig(fig_on_properties[0], sub_file_path + 'Best_On_Similarity')
             SaveFig(fig_on_properties[1], sub_file_path + 'Best_On_Similarity_Peak')
         print('Best_Subspace_Comparison Completed!')
-        plt.close('all')
-            
+        plt.close('all')         
             
     
 
@@ -132,7 +132,7 @@ def main(subspace_params, group_labels):
         Display_Subspace_Comparison_Simulation(n_observation = 100, n_feature = 50, file_path = imagepath)
         
     if subspace_params.Best_Subspace_Comparison_All_Group_Property:
-        for method in ['Trace', 'RV']:
+        for method in ['Trace']:
             fig1, fig2 = subspace_analysis.Best_Subspace_Comparison_All_Group_Property(Groups, method)
             SaveFig(fig1, imagepath + 'BestSubspace/' + method + '/OnSummary')
             SaveFig(fig2, imagepath + 'BestSubspace/' + method + '/OffSummary')

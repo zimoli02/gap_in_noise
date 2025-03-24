@@ -533,7 +533,7 @@ def Period_Capacity_in_Subspace_Comparison(Group, method, max_on_capacity = 75, 
         values = separate_level[x_flat, y_flat, z_flat]
 
         # Create a common colormap normalization
-        norm = Normalize(vmin=np.min(separate_level), vmax=np.max(separate_level))
+        #norm = Normalize(vmin=np.min(separate_level), vmax=np.max(separate_level))
         cmap = 'YlGnBu'
 
         tick_size = 36
@@ -546,14 +546,13 @@ def Period_Capacity_in_Subspace_Comparison(Group, method, max_on_capacity = 75, 
 
         # 1. First subplot: 3D scatter
         ax1 = fig.add_subplot(gs[0], projection='3d')
-        sizes = 15 + (80 - 15) * norm(values)
+        sizes = 15 + (80 - 15) * (values)
         scatter = ax1.scatter(x_flat, y_flat, z_flat, 
                             c=values,
                             cmap=cmap,
                             s=sizes,
                             alpha=1,
-                            edgecolors='none',
-                            norm=norm)
+                            edgecolors='none')
         ax1.scatter(max_indices[0], max_indices[1], max_indices[2], c = 'red', s = 60)
 
         ax1.set_xticks([0, 23, 48, 73])
@@ -575,8 +574,7 @@ def Period_Capacity_in_Subspace_Comparison(Group, method, max_on_capacity = 75, 
         heatmap2 = ax2.imshow(mean_xy.T, 
                             aspect='auto', 
                             origin='lower',
-                            cmap=cmap,
-                            norm=norm)
+                            cmap=cmap)
         ax2.axvline(x = best_on_idx, linestyle = '-', color = 'red', linewidth = 4)
         ax2.axhline(y = best_off_idx, linestyle = '-', color = 'red', linewidth = 4)
         ax2.text(best_on_idx, -2, f"{best_on_capacity}", 
@@ -599,8 +597,7 @@ def Period_Capacity_in_Subspace_Comparison(Group, method, max_on_capacity = 75, 
         heatmap3 = ax3.imshow(mean_xz.T, 
                             aspect='auto', 
                             origin='lower',
-                            cmap=cmap,
-                            norm=norm)
+                            cmap=cmap)
 
         ax3.axvline(x = best_on_idx, linestyle = '-', color = 'red', linewidth = 4)
         ax3.axhline(y = best_timewindow_idx, linestyle = '-', color = 'red', linewidth = 4)
@@ -624,8 +621,7 @@ def Period_Capacity_in_Subspace_Comparison(Group, method, max_on_capacity = 75, 
         heatmap4 = ax4.imshow(mean_yz.T, 
                             aspect='auto', 
                             origin='lower',
-                            cmap=cmap,
-                            norm=norm)
+                            cmap=cmap)
 
         ax4.axvline(x = best_off_idx, linestyle = '-', color = 'red', linewidth = 4)
         ax4.axhline(y = best_timewindow_idx, linestyle = '-', color = 'red', linewidth = 4)
@@ -899,7 +895,7 @@ def Best_Subspace_Comparison(Group, method):
         axs.set_yticks([0,1], labels = [0,1])
         axs.tick_params(axis = 'both', labelsize = 36)
         axs.set_ylabel('Subspace Similarity', fontsize = 40)
-        axs.set_xlabel('Noise 2 Onset (ms)', fontsize = 40)
+        axs.set_xlabel('Noise 1 Offset (ms)', fontsize = 40)
         fig1.suptitle('Pre-Gap Offset\nOff-Similarity', fontsize = 54, fontweight = 'bold')
         
         fig2, axs = plt.subplots(1, 1, figsize=(10, 10))  
@@ -933,24 +929,21 @@ def Best_Subspace_Comparison(Group, method):
 
 def Best_Subspace_Comparison_All_Group_Property(Groups, method):
     def Draw_On_Similarity_Properties():
-        colors = ['red', 'orange', 'black', 'grey']
         fig, axs = plt.subplots(1, 1, figsize=(10, 10))  
-        for i in range(4):
-            Group = Groups[i]
-            label = Group.geno_type + '_' + Group.hearing_type
+        for i, (label, Group) in enumerate(Groups.items()):
             file_path = check_path(subspacepath + f'BestSubspaceComparison/{method}/')
             with open(file_path + f'{label}.pkl', 'rb') as f:
                 Similarities = pickle.load(f)
-            Off_Similarities = Similarities['Off']
+            On_Similarities = Similarities['On']
             
             peak_values = []
             for gap_idx in range(10):
                 gap_dur = round(Group.gaps[gap_idx]*1000)
-                start, end = 250 + gap_dur, 250 + gap_dur + 100
-                Similarity_Index = Off_Similarities[gap_idx]
+                start, end = 250 + gap_dur, 250 + gap_dur + 100 
+                Similarity_Index = On_Similarities[gap_idx]
                 peak_values.append(np.max(Similarity_Index[start:end]))
                 axs.scatter(gap_idx, peak_values[gap_idx], color = pal[gap_idx], s = 400)
-            axs.plot(np.arange(1, 10), peak_values[1:], color = colors[i], linewidth = 5)
+            axs.plot(np.arange(10), peak_values, color = colors[label], linewidth = 5, label = label)
         
         axs.legend(loc = 'upper left', fontsize = 28)
         axs.set_xticks([1, 3, 5, 7, 9], labels = ['2$^0$', '2$^2$', '2$^4$', '2$^6$', '2$^8$'])
@@ -962,24 +955,21 @@ def Best_Subspace_Comparison_All_Group_Property(Groups, method):
         return fig
     
     def Draw_Off_Similarity_Properties():
-        colors = ['red', 'orange', 'black', 'grey']
         fig, axs = plt.subplots(1, 1, figsize=(10, 10))  
-        for i in range(4):
-            Group = Groups[i]
-            label = Group.geno_type + '_' + Group.hearing_type
+        for i, (label, Group) in enumerate(Groups.items()):
             file_path = check_path(subspacepath + f'BestSubspaceComparison/{method}/')
             with open(file_path + f'{label}.pkl', 'rb') as f:
                 Similarities = pickle.load(f)
-            On_Similarities = Similarities['On']
+            Off_Similarities = Similarities['Off']
             
             peak_values = []
             for gap_idx in range(10):
                 gap_dur = round(Group.gaps[gap_idx]*1000)
-                start, end= 250, 250 + gap_dur + 100
-                Similarity_Index = On_Similarities[gap_idx]
+                start, end = 250, 250 + 100 
+                Similarity_Index = Off_Similarities[gap_idx]
                 peak_values.append(np.max(Similarity_Index[start:end]))
                 axs.scatter(gap_idx, peak_values[gap_idx], color = pal[gap_idx], s = 400)
-            axs.plot(np.arange(1, 10), peak_values[1:], color = colors[i], linewidth = 5)
+            axs.plot(np.arange(10), peak_values, color = colors[label], linewidth = 5, label = label)
         
         axs.legend(loc = 'upper left', fontsize = 28)
         axs.set_xticks([1, 3, 5, 7, 9], labels = ['2$^0$', '2$^2$', '2$^4$', '2$^6$', '2$^8$'])
@@ -990,7 +980,8 @@ def Best_Subspace_Comparison_All_Group_Property(Groups, method):
         fig.suptitle(f'Max. Off-Similarity', fontsize = 54, fontweight = 'bold')
         return fig
     
-    fig_on=  Draw_On_Similarity_Properties()
+    colors = {'WT_NonHL': 'red', 'WT_HL':'orange', 'Df1_NonHL':'black', 'Df1_HL':'grey'}
+    fig_on =  Draw_On_Similarity_Properties()
     fig_off = Draw_Off_Similarity_Properties()
     
     return fig_on, fig_off
