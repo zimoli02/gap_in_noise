@@ -23,20 +23,19 @@ class SubspaceParams:
 class ProjectionParams:
     Dimensionality_Reduction: bool = False
     Low_Dim_Activity_in_Space: bool = False
+    Predict_Off_using_Low_Dim_Activity: bool = False
+    
 def main():
 
     subspace_params = SubspaceParams(
-        Best_Subspace_Comparison_All_Group_Property = False
+        Best_Subspace_Comparison_All_Group_Property = True
     )
-    
-    #DisplaySubspaceAnalysis.main(subspace_params, group_labels = ['WT_NonHL', 'WT_HL', 'Df1_NonHL'])
+    DisplaySubspaceAnalysis.main(subspace_params, group_labels = ['WT_NonHL', 'WT_HL', 'Df1_NonHL', 'Df1_HL'])
     
     projection_params = ProjectionParams(
-        Dimensionality_Reduction = True,
-        Low_Dim_Activity_in_Space = True
+        Predict_Off_using_Low_Dim_Activity = True
     )
-    
-    DisplayProjectionAnalysis.main(projection_params, group_labels = ['WT_NonHL', 'WT_HL', 'Df1_NonHL', 'Df1_HL'])
+    #DisplayProjectionAnalysis.main(projection_params, group_labels = ['WT_NonHL', 'WT_HL', 'Df1_NonHL', 'Df1_HL'])
     
 
 if __name__ == "__main__":

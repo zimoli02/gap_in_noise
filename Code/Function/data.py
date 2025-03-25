@@ -307,9 +307,9 @@ class Recording:
                     mean, std = np.mean(off_background), np.std(off_background)
                     flag = Detect_Transient(off_period[12:], mean + 2*std, mean - 2*std)
                     response[1, gap_idx] = flag
-                if np.mean(response[0]) > 0.6 and np.mean(response[1]) < 0.7: unit_type.append('on')
-                if np.mean(response[0]) < 0.7 and np.mean(response[1]) > 0.6: unit_type.append('off')
-                if np.mean(response[0]) > 0.6 and np.mean(response[1]) > 0.6: unit_type.append('both')
+                if np.mean(response[0]) > 0.7 and np.mean(response[1]) < 0.7: unit_type.append('on')
+                if np.mean(response[0]) < 0.7 and np.mean(response[1]) > 0.7: unit_type.append('off')
+                if np.mean(response[0]) > 0.7 and np.mean(response[1]) > 0.7: unit_type.append('both')
                 if np.mean(response[0]) < 0.7 and np.mean(response[1]) < 0.7: unit_type.append('none')
             return np.array(unit_type)
         

@@ -11,9 +11,9 @@ from scipy.stats import sem
 from scipy.ndimage import gaussian_filter1d
 from scipy.optimize import curve_fit
 from scipy.linalg import svd, orth
-from sklearn.decomposition import PCA as SKPCA
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import r2_score
+from sklearn.kernel_ridge import KernelRidge
 
 from matplotlib.lines import Line2D
 import matplotlib.gridspec as gridspec
@@ -22,7 +22,6 @@ import matplotlib.patches as patches
 pal = sns.color_palette('viridis_r', 11)
 
 from . import analysis
-
 
 import warnings
 warnings.filterwarnings('ignore', category=FutureWarning)
@@ -211,4 +210,109 @@ def Low_Dim_Activity_Manifold(Group, short_gap = 5, long_gap = 9):
     fig_long_gap_3D = three_dim(gap_idx = long_gap)
     
     return [fig_short_gap_2D, fig_long_gap_2D], [fig_short_gap_3D, fig_long_gap_3D]
+    
+
+def Binary_Classifier(Group, subspace):
+    def Get_Model(X, Y, kernel = False, kernel_type = '', alpha = 0):
+        if not kernel:
+            model = LogisticRegression()
+            model.fit(X, Y)
+        else:
+            model = KernelRidge(kernel=kernel_type, alpha=alpha)
+            model.fit(X, Y)
+
+        return model
+
+    def Get_Prediction(gap_idx, model, dim, kernel = False):
+        PCs = Group.pca.score[dim, 1000*gap_idx:1000*(gap_idx+1)]
+        X = PCs.T  
+        if not kernel: 
+            s = model.predict_proba(X)
+        else:
+            s = model.predict(X)
+        return s
+
+    def Get_Cross_Validated_Model(subspace, dim, kernel = False, kernel_type = '', alpha = 0):
+        LogLoss = np.zeros(10)
+        models = []
+        for gap_idx in range(10):
+            X_test = (subspace @ Group.pop_response_stand[:, gap_idx, :])[dim].T
+            y_test = 1-  np.array(Group.gaps_label[gap_idx])
+            X_train = np.zeros((len(Group.pop_response_stand), 2))
+            y_train = []
+            for j in range(10):
+                if j == gap_idx: continue 
+                X_train = np.concatenate([X_train, subspace @ Group.pop_response_stand[:, j, :]], axis=1)
+                y_train += list(Group.gaps_label[j])
+            X_train = X_train[dim, 2:].T
+            y_train = 1- np.array(y_train)
+            model = Get_Model(X_train, y_train, kernel = kernel, kernel_type = kernel_type, alpha = alpha)
+            models.append(model)
+            if not kernel:
+                y_pred = model.predict_proba(X_test)[:, 1] 
+                LogLoss[gap_idx] = -1/1000*np.sum(y_test * np.log(y_pred) + (1-y_test)*np.log(1-y_pred))
+            else:
+                y_pred = model.predict(X_test)
+                LogLoss[gap_idx] = np.mean((y_pred - y_test) ** 2)
+        min_idx = np.argsort(LogLoss)[0]
+        return LogLoss[min_idx], models[min_idx]
+
+    def Find_Efficient_Dim(subspace, kernel = False, kernel_type = '', alpha = 0):
+        log_losses, models = [], []
+        for i in range(1,min(20, len(Group.pop_response_stand))):
+            dim = np.arange(0, i)
+            log_loss, model = Get_Cross_Validated_Model(subspace, dim, kernel = kernel, kernel_type = kernel_type, alpha = alpha)
+            log_losses.append(log_loss)
+            models.append(model)
+        return log_losses, models
+
+    def Get_Efficient_Dim():
+        LogLosses, binary_models = Find_Efficient_Dim(subspace, kernel = False)
+        min_loss_idx = np.argsort(LogLosses)[0]
+        binary_model = binary_models[min_loss_idx]
+        dim_num = min_loss_idx + 1
+        
+        fig, axs = plt.subplots(1, 1, figsize=(10, 10))   
+        axs.plot(np.arange(len(LogLosses)), LogLosses, color = 'black')
+        axs.scatter(2, LogLosses[2], color = 'red', s = 400)
+        axs.set_xlabel('#Dimension', fontsize = 40)
+        axs.set_ylabel('log Loss', fontsize = 40)
+        axs.tick_params(axis = 'both', labelsize = 36)
+        axs.set_title('Prediction Loss for Model', fontsize = 54, fontweight = 'bold')
+        
+        return fig
+    
+    def Build_Model():
+        dim_num = 3
+        dim = np.arange(0, dim_num)
+        LogLoss, binary_model = Get_Cross_Validated_Model(subspace, dim = dim, kernel = False)
+        
+        fig, axs = plt.subplots(10, 1, figsize=(20, 70))  
+        for gap_idx in range(10):
+            gap_dur = round(Group.gaps[gap_idx]*1000)
+            
+            s = Get_Prediction(gap_idx, binary_model, dim = dim)
+            prob_on = s[:, 0]
+            prob_off = s[:, 1]
+            
+            axs[gap_idx].plot(prob_off, color = pal[gap_idx], linewidth = 7)
+            
+            ymin, ymax = 0, 1
+            mask = Group.gaps_label[gap_idx] == 1
+            axs[gap_idx].fill_between(np.arange(len(Group.gaps_label[gap_idx])), ymin, ymax, where=mask, color = 'lightgrey')
+
+            axs[gap_idx].set_xticks([], labels = [])
+            axs[gap_idx].set_yticks([0,1], labels = [0, 1])
+            axs[9].set_xticks([100, 1000], labels = [100, 1000])
+            axs[gap_idx].tick_params(axis = 'both', labelsize = 36)
+            axs[gap_idx].set_ylabel(f'Gap = {gap_dur} ms', fontsize = 36, fontweight = 'bold')
+        axs[9].set_xlabel('Time (ms)', fontsize = 40, fontweight = 'bold')
+        fig.suptitle(f'Predict Sound Off using {dim_num} Dimensions', fontsize = 54, fontweight = 'bold', y=0.9)
+        
+        return fig
+    
+    fig_Efficient_Dim  = Get_Efficient_Dim()
+    fig_Model_Prediction = Build_Model()
+    
+    return fig_Efficient_Dim, fig_Model_Prediction
     

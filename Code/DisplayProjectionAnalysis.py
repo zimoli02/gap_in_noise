@@ -80,6 +80,14 @@ def Display_Group(params, Group, label, file_path = '../Images/Subspace/'):
         print('Low_Dim_Activity_in_Space Completed')
         plt.close('all')
         
+    if params.Predict_Off_using_Low_Dim_Activity:
+        sub_file_path = file_path + label + '/'
+        fig_Efficient_Dim, fig_Model_Prediction = projection_analysis.Binary_Classifier(Group, subspace = Group.pca.loading)
+        SaveFig(fig_Efficient_Dim, sub_file_path + 'Efficient_Dim')
+        SaveFig(fig_Model_Prediction, sub_file_path + 'Model_Prediction')
+        print('Predict_Off_using_Low_Dim_Activity Completed')
+        plt.close('all')
+        
 def main(subspace_params, group_labels):
 
     Groups, Labels = Load_Groups(group_labels)
