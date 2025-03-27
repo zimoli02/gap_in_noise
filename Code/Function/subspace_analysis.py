@@ -177,12 +177,34 @@ def Compare_Subspace_Similarity(periods, method, shuffle_method = False):
                 sim[i,j] = sim[j, i] = Calculate_Similarity(periods[i], periods[j], method = method,  shuffle_method = shuffle_method)
     return sim
 
+def add_significance_bar(ax, x1, x2, y, p):
+    h = 0.02
+    text_space = 0.03
+    if p < 0.001:
+        h = 0.015
+        #h = 0.02 * (ax.get_ylim()[1] - ax.get_ylim()[0])
+        ax.plot([x1, x1, x2, x2], [y, y+h, y+h, y], color='black', lw=2)
+        ax.text((x1+x2)/2, y+h - text_space, '***', ha='center', va='bottom', size = 32)
+    elif p < 0.01:
+        #h = 0.02 * (ax.get_ylim()[1] - ax.get_ylim()[0])
+        ax.plot([x1, x1, x2, x2], [y, y+h, y+h, y], color='black', lw=2)
+        ax.text((x1+x2)/2, y+h - text_space, '**', ha='center', va='bottom', size = 32)
+    elif p < 0.05:
+        #h = 0.02 * (ax.get_ylim()[1] - ax.get_ylim()[0])
+        ax.plot([x1, x1, x2, x2], [y, y+h, y+h, y], color='black', lw=2)
+        ax.text((x1+x2)/2, y+h - text_space, '*', ha='center', va='bottom', size = 32)
+
 def Comparison_Method_Full_Title(method):
     if method == 'Pairwise': return 'Pairwise Cosine Alignment'
     if method == 'CCA': return 'CCA Coefficient'
     if method == 'RV': return 'RV Coefficient'
     if method == 'Trace': return 'Covariance Alignment'
 
+def sigmoid(x, L, x0, k, c):
+    return L / (1 + np.exp(-k * (x - x0))) + c
+
+def inverse_sigmoid(y, L, x0, k, c):
+    return x0 - (1 / k) * np.log((L / (y-c)) - 1)
 
 # Non-Specific Plotting
 
@@ -315,22 +337,7 @@ def Standard_Subspace_Comparison(Group, subspace_name, period_length = 100, offs
         return axs
     
     def Draw_Compare_Subspace_Similarity_Result_Test(axs, periods, subspace_name, method):
-        def add_significance_bar(ax, x1, x2, y, p):
-            h = 0.02
-            text_space = 0.03
-            if p < 0.001:
-                h = 0.015
-                #h = 0.02 * (ax.get_ylim()[1] - ax.get_ylim()[0])
-                ax.plot([x1, x1, x2, x2], [y, y+h, y+h, y], color='black', lw=2)
-                ax.text((x1+x2)/2, y+h - text_space, '***', ha='center', va='bottom', size = 32)
-            elif p < 0.01:
-                #h = 0.02 * (ax.get_ylim()[1] - ax.get_ylim()[0])
-                ax.plot([x1, x1, x2, x2], [y, y+h, y+h, y], color='black', lw=2)
-                ax.text((x1+x2)/2, y+h - text_space, '**', ha='center', va='bottom', size = 32)
-            elif p < 0.05:
-                #h = 0.02 * (ax.get_ylim()[1] - ax.get_ylim()[0])
-                ax.plot([x1, x1, x2, x2], [y, y+h, y+h, y], color='black', lw=2)
-                ax.text((x1+x2)/2, y+h - text_space, '*', ha='center', va='bottom', size = 32)
+        
         
         Similarity_Indices = []
         for shuffle_method in [False, 'Shuffle_Neuron', 'Add_Neuron', 'Add_Noise', 'Rotate']:
@@ -400,6 +407,7 @@ def Subspace_Similarity_for_All_Gaps(Group, subspace_name, methods, standard_per
         try:
             with open(file_path + f'{label}.pkl', 'rb') as f:
                 data = pickle.load(f)
+            print('Data Existed!')
         except FileNotFoundError:
             data = {}
             for gap_idx in range(10):
@@ -428,7 +436,7 @@ def Subspace_Similarity_for_All_Gaps(Group, subspace_name, methods, standard_per
             axs[gap_idx].tick_params(axis = 'both', labelsize = 36)
             axs[gap_idx].set_ylabel(f'Gap = {gap_dur} ms', fontsize = 36, fontweight = 'bold')
         axs[9].set_xlabel('Time (ms)', fontsize = 40, fontweight = 'bold')
-        fig.suptitle(f'Compare with {subspace_name}-Space', fontsize = 54, fontweight = 'bold', y=0.9)
+        fig.suptitle(f'Similarity with {subspace_name}-Space', fontsize = 54, fontweight = 'bold', y=0.9)
         
         lines, labels = [], []
         for method in methods:
@@ -442,13 +450,59 @@ def Subspace_Similarity_for_All_Gaps(Group, subspace_name, methods, standard_per
         legend.get_frame().set_edgecolor('black') # Black border
         
         return fig
-        
+    
+    def Justify_the_Separation_Level_for_each_Space_each_Method():
+        subspacenames = ['On', 'Off', 'SustainedNoise', 'SustainedSilence']
+        for i in range(len(subspacenames)):
+            subspacename = subspacenames[i]
+            if subspacename != subspace_name: continue
+            file_path = subspacepath + f'SubspaceEvolution/{subspacename}/'
+            with open(file_path + f'{label}.pkl', 'rb') as f:
+                data = pickle.load(f)
+            print('Data Existed!')
+                
+            fig, axs = plt.subplots(2, 2, figsize = (20, 20))
+            axs = axs.flatten()
+            for j in range(len(methods)):
+                method = methods[j]
+                Similarity = np.array(data[9][method])  
+                
+                On_sim = Similarity[:standard_period_length]
+                SustainedNoise_sim = Similarity[250-standard_period_length:250]
+                Off_sim = Similarity[250+offset_delay:250+offset_delay+standard_period_length]
+                SustainedSilence_sim = Similarity[-standard_period_length:]
+                
+                Similarities = np.array([On_sim, Off_sim, SustainedNoise_sim, SustainedSilence_sim])
+                Means = np.array([np.mean(sim) for sim in Similarities])
+                Stds = np.array([np.std(sim) for sim in Similarities])
+                
+                p_values = [stats.ttest_ind(Similarities[i], Similarities[k])[1] for k in range(4)] 
+                
+                axs[j].bar([0,1,2,3], Means, yerr=np.array(Stds)*3, color=colors[method], alpha=0.6, capsize=10, width=0.8, error_kw={'capthick': 3, 'elinewidth': 2.5})
+                
+                max_y = max(Means) + max(Stds)*3 + 0.05
+                for k in range(4):
+                    if k == i: continue
+                    add_significance_bar(axs[j], i, k, max_y + 0.1*(k-1), p_values[k])
+
+                
+                axs[j].set_yticks([0, 1, 2], labels = [0, 1, 2])
+                axs[j].set_xticks([0,1,2,3], ['On', 'Off', 'S.N.','S.L.'], rotation = 45, ha = 'center')
+                axs[j].tick_params(axis='both', labelsize=28)
+                axs[j].set_ylim(-0.5, 2)
+                axs[j].set_title(Comparison_Method_Full_Title(method), fontsize = 34)
+
+            fig.suptitle(f'Similarity with {subspacename}-Space\nduring Different Periods', fontsize = 54, fontweight = 'bold') 
+        return fig
+    
+    label = Group.geno_type + '_' + Group.hearing_type
     standard_period = Get_Standard_Period()
     colors = {'Pairwise':'#0047AB', 'CCA':'#DC143C', 'RV':'#228B22', 'Trace':'#800080'}
     Similarity_Index_for_All_Gap = Get_Similarity_Index_for_All_Gap(standard_period)
     fig = Draw_Similarity_Index_for_All_Gap(Similarity_Index_for_All_Gap)
+    fig_justification = Justify_the_Separation_Level_for_each_Space_each_Method()
     
-    return fig
+    return fig, fig_justification
 
 def Period_Capacity_in_Subspace_Comparison(Group, method, max_on_capacity = 75, max_off_capacity = 100, max_timewindow = 100, offset_delay = 10):
     def Find_Best_Period_Capacity():
@@ -509,16 +563,33 @@ def Period_Capacity_in_Subspace_Comparison(Group, method, max_on_capacity = 75, 
         return on_capacities, off_capacities, timewindows, separate_level
     
     def Determine_Best_Capacity(on_capacities, off_capacities, timewindows, separate_level):
-        linear_index = np.argmax(separate_level)
-        max_indices = np.unravel_index(linear_index, separate_level.shape)
-        return on_capacities[max_indices[0]], off_capacities[max_indices[1]], timewindows[max_indices[2]]
+        maximum_level = np.max(separate_level)
+        threshold = maximum_level*0.5
+
+        parameters = []
+        for i in range(len(on_capacities)):
+            for j in range(len(off_capacities)):
+                for k in range(len(timewindows)):
+                    if abs(separate_level[i,j,k] - threshold) < 1e-3: parameters.append([on_capacities[i], off_capacities[j], timewindows[k]])
+        centroid = np.mean(np.array(parameters), axis = 0)
+        best_on_capacity, best_off_capacity, best_timewindow = round(centroid[0]), round(centroid[1]), round(centroid[2])
+        return best_on_capacity, best_off_capacity, best_timewindow
     
     def Draw_Compare_Period_Capacity(on_capacities, off_capacities, timewindows, separate_level):
-        linear_index = np.argmax(separate_level)
-        max_indices = np.unravel_index(linear_index, separate_level.shape)
-        best_on_idx, best_on_capacity = max_indices[0], on_capacities[max_indices[0]]
-        best_off_idx, best_off_capacity = max_indices[1], off_capacities[max_indices[1]]
-        best_timewindow_idx, best_timewindow = max_indices[2], timewindows[max_indices[2]]
+        
+        best_on_capacity, best_off_capacity, best_timewindow = Determine_Best_Capacity(on_capacities, off_capacities, timewindows, separate_level)
+        for i in range(len(on_capacities)):
+            if abs(on_capacities[i] - best_on_capacity) < 0.5: 
+                best_on_idx = i
+                break
+        for i in range(len(off_capacities)):
+            if abs(off_capacities[i] - best_off_capacity) < 0.5: 
+                best_off_idx = i
+                break
+        for i in range(len(timewindows)):
+            if abs(timewindows[i] - best_timewindow) < 5: 
+                best_timewindow_idx = i
+                break
 
         # Create meshgrid and extract coordinates/values for 3D plot
         X, Y, Z = np.meshgrid(np.arange(len(on_capacities)), 
@@ -533,7 +604,7 @@ def Period_Capacity_in_Subspace_Comparison(Group, method, max_on_capacity = 75, 
         values = separate_level[x_flat, y_flat, z_flat]
 
         # Create a common colormap normalization
-        #norm = Normalize(vmin=np.min(separate_level), vmax=np.max(separate_level))
+        norm = Normalize(vmin=0, vmax=1)
         cmap = 'YlGnBu'
 
         tick_size = 36
@@ -552,8 +623,8 @@ def Period_Capacity_in_Subspace_Comparison(Group, method, max_on_capacity = 75, 
                             cmap=cmap,
                             s=sizes,
                             alpha=1,
-                            edgecolors='none')
-        ax1.scatter(max_indices[0], max_indices[1], max_indices[2], c = 'red', s = 60)
+                            edgecolors='none',
+                            norm=norm)
 
         ax1.set_xticks([0, 23, 48, 73])
         ax1.set_xticklabels([on_capacities[0], on_capacities[23], on_capacities[48], on_capacities[73]], fontsize=tick_size)
@@ -574,7 +645,8 @@ def Period_Capacity_in_Subspace_Comparison(Group, method, max_on_capacity = 75, 
         heatmap2 = ax2.imshow(mean_xy.T, 
                             aspect='auto', 
                             origin='lower',
-                            cmap=cmap)
+                            cmap=cmap,
+                            norm=norm)
         ax2.axvline(x = best_on_idx, linestyle = '-', color = 'red', linewidth = 4)
         ax2.axhline(y = best_off_idx, linestyle = '-', color = 'red', linewidth = 4)
         ax2.text(best_on_idx, -2, f"{best_on_capacity}", 
@@ -582,10 +654,10 @@ def Period_Capacity_in_Subspace_Comparison(Group, method, max_on_capacity = 75, 
         ax2.text(-2, best_off_idx, f"{best_off_capacity}", 
                 color='red', fontsize=tick_size, ha='right', va='center')
 
-        ax2.set_xticks([0, 23, 48, 73])
-        ax2.set_xticklabels([on_capacities[0], on_capacities[23], on_capacities[48], on_capacities[73]], fontsize=tick_size)
-        ax2.set_yticks([48, 98])
-        ax2.set_yticklabels([off_capacities[48], off_capacities[98]], fontsize=tick_size)
+        ax2.set_xticks([0, 73])
+        ax2.set_xticklabels([on_capacities[0], on_capacities[73]], fontsize=tick_size)
+        ax2.set_yticks([0, 98])
+        ax2.set_yticklabels([off_capacities[0], off_capacities[98]], fontsize=tick_size)
 
         ax2.set_xlabel('On-Space (ms)', fontsize=label_size)
         ax2.set_ylabel('Off-Space (ms)', fontsize=label_size)
@@ -597,7 +669,8 @@ def Period_Capacity_in_Subspace_Comparison(Group, method, max_on_capacity = 75, 
         heatmap3 = ax3.imshow(mean_xz.T, 
                             aspect='auto', 
                             origin='lower',
-                            cmap=cmap)
+                            cmap=cmap,
+                            norm=norm)
 
         ax3.axvline(x = best_on_idx, linestyle = '-', color = 'red', linewidth = 4)
         ax3.axhline(y = best_timewindow_idx, linestyle = '-', color = 'red', linewidth = 4)
@@ -606,10 +679,10 @@ def Period_Capacity_in_Subspace_Comparison(Group, method, max_on_capacity = 75, 
         ax3.text(-1, best_timewindow_idx, f"{best_timewindow}", 
                 color='red', fontsize=tick_size, ha='right', va='center')
 
-        ax3.set_xticks([0, 23, 48, 73])
-        ax3.set_xticklabels([on_capacities[0], on_capacities[23], on_capacities[48], on_capacities[73]], fontsize=tick_size)
-        ax3.set_yticks([0, 10, 19])
-        ax3.set_yticklabels([timewindows[0], timewindows[10], timewindows[19]], fontsize=tick_size)
+        ax3.set_xticks([0,73])
+        ax3.set_xticklabels([on_capacities[0], on_capacities[73]], fontsize=tick_size)
+        ax3.set_yticks([0, 19])
+        ax3.set_yticklabels([timewindows[0], timewindows[19]], fontsize=tick_size)
 
         ax3.set_xlabel('On-Space (ms)', fontsize=label_size)
         ax3.set_ylabel('Time Window (ms)', fontsize=label_size)
@@ -621,7 +694,8 @@ def Period_Capacity_in_Subspace_Comparison(Group, method, max_on_capacity = 75, 
         heatmap4 = ax4.imshow(mean_yz.T, 
                             aspect='auto', 
                             origin='lower',
-                            cmap=cmap)
+                            cmap=cmap,
+                            norm = norm)
 
         ax4.axvline(x = best_off_idx, linestyle = '-', color = 'red', linewidth = 4)
         ax4.axhline(y = best_timewindow_idx, linestyle = '-', color = 'red', linewidth = 4)
@@ -630,10 +704,10 @@ def Period_Capacity_in_Subspace_Comparison(Group, method, max_on_capacity = 75, 
         ax4.text(-1, best_timewindow_idx, f"{best_timewindow}", 
                 color='red', fontsize=tick_size, ha='right', va='center')
 
-        ax4.set_xticks([48, 98])
-        ax4.set_xticklabels([off_capacities[48], off_capacities[98]], fontsize=tick_size)
-        ax4.set_yticks([0, 10, 19])
-        ax4.set_yticklabels([timewindows[0], timewindows[10], timewindows[19]], fontsize=tick_size)
+        ax4.set_xticks([0, 98])
+        ax4.set_xticklabels([off_capacities[0], off_capacities[98]], fontsize=tick_size)
+        ax4.set_yticks([0, 19])
+        ax4.set_yticklabels([timewindows[0], timewindows[19]], fontsize=tick_size)
 
         ax4.set_xlabel('Off-Space (ms)', fontsize=label_size)
         ax4.set_ylabel('Time Window (ms)', fontsize=label_size)
@@ -642,12 +716,10 @@ def Period_Capacity_in_Subspace_Comparison(Group, method, max_on_capacity = 75, 
         # Add a single colorbar for all subplots
         cbar_ax = fig.add_axes([0.92, 0.15, 0.01, 0.7])  # [left, bottom, width, height]
         cbar = fig.colorbar(scatter, cax=cbar_ax)
-        #cbar.set_label('Separation Level', fontsize=32, labelpad=10)
         cbar.set_ticks(np.linspace(0, 1, 6))
         cbar.ax.tick_params(labelsize=tick_size)
 
         fig.suptitle('Separation Level for On/Off-Subspace Similarity', fontsize=54, fontweight='bold', y=1.1)
-        # Add more space between subplots and adjust the layout
         plt.subplots_adjust(right=0.9, wspace=0.3)
         
         return fig
@@ -666,6 +738,7 @@ def Period_Capacity_in_Subspace_Comparison(Group, method, max_on_capacity = 75, 
                 Similarities = pickle.load(f)
                 On_Similarities = Similarities['On']
                 Off_Similarities = Similarities['Off']
+            print('Data Existed!')
         except FileNotFoundError:
             standard_on_period = Group.pop_response_stand[:, 0, 100:100 + on_capacity]
             standard_off_period = Group.pop_response_stand[:, 0, 450 + offset_delay:450 + offset_delay + off_capacity]
@@ -686,14 +759,15 @@ def Period_Capacity_in_Subspace_Comparison(Group, method, max_on_capacity = 75, 
             off_capacities = data['off_capacities']
             timewindows = data['timewindows']
             separate_level = data['separate_level']
+        print('Data Existed!')
     except FileNotFoundError:
         file_path = check_path(subspacepath + f'PeriodCapacity/{method}/')
         on_capacities, off_capacities, timewindows, separate_level = Find_Best_Period_Capacity()
         np.savez(file_path + f'{label}.npz', 
-         on_capacities=on_capacities, 
-         off_capacities=off_capacities, 
-         timewindows=timewindows, 
-         separate_level=separate_level)
+            on_capacities=on_capacities, 
+            off_capacities=off_capacities, 
+            timewindows=timewindows, 
+            separate_level=separate_level)
     
     on_capacity, off_capacity, timewindow = Determine_Best_Capacity(on_capacities, off_capacities, timewindows, separate_level)
     fig_best_capacity = Draw_Compare_Period_Capacity(on_capacities, off_capacities, timewindows, separate_level)
@@ -927,14 +1001,22 @@ def Best_Subspace_Comparison(Group, method):
     return fig_best_subspace_comparison, fig_explain_find_best_subspace, [fig_on_similarity_evolution, fig_on_similarity_peak], [fig_off_similarity_evolution, fig_off_similarity_peak]
 
 
-def Best_Subspace_Comparison_All_Group_Property(Groups, method):
+# Summary for All Groups
+
+def Best_Subspace_Comparison_All_Group_Property(Groups, method, optimised_param = True):
     def Draw_On_Similarity_Properties():
         fig, axs = plt.subplots(1, 1, figsize=(10, 10))  
         for i, (label, Group) in enumerate(Groups.items()):
-            file_path = check_path(subspacepath + f'BestSubspaceComparison/{method}/')
-            with open(file_path + f'{label}.pkl', 'rb') as f:
-                Similarities = pickle.load(f)
-            On_Similarities = Similarities['On']
+            if optimised_param:
+                file_path = check_path(subspacepath + f'BestSubspaceComparison/{method}/')
+                with open(file_path + f'{label}.pkl', 'rb') as f:
+                    Similarities = pickle.load(f)
+                On_Similarities = Similarities['On']
+            else:
+                file_path = check_path(subspacepath + f'SubspaceEvolution/On/')
+                with open(file_path + f'{label}.pkl', 'rb') as f:
+                    data = pickle.load(f)
+                On_Similarities = np.array([data[i][method] for i in range(10)])   
             
             peak_values = []
             for gap_idx in range(10):
@@ -955,12 +1037,21 @@ def Best_Subspace_Comparison_All_Group_Property(Groups, method):
         return fig
     
     def Draw_Off_Similarity_Properties():
+
         fig, axs = plt.subplots(1, 1, figsize=(10, 10))  
+        fig1, axs1 = plt.subplots(1, 2, figsize=(8, 10))  
+        fig2, axs2 = plt.subplots(1, 1, figsize=(4, 10))   
         for i, (label, Group) in enumerate(Groups.items()):
-            file_path = check_path(subspacepath + f'BestSubspaceComparison/{method}/')
-            with open(file_path + f'{label}.pkl', 'rb') as f:
-                Similarities = pickle.load(f)
-            Off_Similarities = Similarities['Off']
+            if optimised_param:
+                file_path = check_path(subspacepath + f'BestSubspaceComparison/{method}/')
+                with open(file_path + f'{label}.pkl', 'rb') as f:
+                    Similarities = pickle.load(f)
+                Off_Similarities = Similarities['Off']
+            else:
+                file_path = check_path(subspacepath + f'SubspaceEvolution/Off/')
+                with open(file_path + f'{label}.pkl', 'rb') as f:
+                    data = pickle.load(f)
+                Off_Similarities = np.array([data[i][method] for i in range(10)])
             
             peak_values = []
             for gap_idx in range(10):
@@ -969,8 +1060,29 @@ def Best_Subspace_Comparison_All_Group_Property(Groups, method):
                 Similarity_Index = Off_Similarities[gap_idx]
                 peak_values.append(np.max(Similarity_Index[start:end]))
                 axs.scatter(gap_idx, peak_values[gap_idx], color = pal[gap_idx], s = 400)
-            axs.plot(np.arange(10), peak_values, color = colors[label], linewidth = 5, label = label)
-        
+            
+            x_data = np.arange(9)
+            y_data = peak_values[1:]
+            popt, pcov = curve_fit(sigmoid, x_data, y_data, p0=[max(y_data), np.median(x_data), 1, 0])
+            L_fit, x0_fit, k_fit, c_fit = popt
+            x_fit = np.linspace(min(x_data), max(x_data), 100)
+            y_fit = sigmoid(x_fit, *popt)
+            r2 = r2_score(y_data, sigmoid(x_data, *popt))
+            print(f'{label}: R-Squared for sigmoidal fit is {r2} when parameter optimisation is {optimised_param}')
+            axs.plot(x_fit+1, y_fit, color = colors[label], linewidth = 5, label = label)
+            
+            y_percents = [0.01, 0.99]
+            titles = ['Lower Bound.', 'Upper Bound.']
+            for j in range(2):
+                y_percent = y_percents[j]
+                x_ = (L_fit-c_fit)*y_percent + c_fit
+                axs1[j].bar(i, x_, color = colors[label], width=0.8)
+            
+            y_percent = 0.5
+            x_ = inverse_sigmoid((L_fit-c_fit)*y_percent + c_fit, *popt)
+            threshold_gap_dur = np.exp2(x_)
+            axs2.bar(i, threshold_gap_dur, color = colors[label], width=0.8)
+                
         axs.legend(loc = 'upper left', fontsize = 28)
         axs.set_xticks([1, 3, 5, 7, 9], labels = ['2$^0$', '2$^2$', '2$^4$', '2$^6$', '2$^8$'])
         axs.set_yticks([0,1], labels = [0, 1])
@@ -978,10 +1090,26 @@ def Best_Subspace_Comparison_All_Group_Property(Groups, method):
         axs.set_xlabel(f'Gap Duration (ms)', fontsize = 40)
         axs.set_ylabel('Similarity Index', fontsize = 40)
         fig.suptitle(f'Max. Off-Similarity', fontsize = 54, fontweight = 'bold')
-        return fig
+        
+        for i in range(2):
+            axs1[i].set_yticks([0,1], labels = [0, 1])
+            axs1[i].set_xticks([0,1,2,3], ['', '', '',''])
+            axs1[i].tick_params(axis='both', labelsize=28)
+            axs1[i].set_ylim(0, 1)
+            axs1[i].set_ylabel('Off-Similarity', fontsize = 28)
+            axs1[i].set_title(titles[i], fontsize = 34)
+        
+        axs2.set_yticks([0, 10, 20], labels = [0, 10, 20])
+        axs2.set_xticks([0,1,2,3], ['', '', '',''])
+        axs2.tick_params(axis='both', labelsize=28)
+        axs2.set_ylim(0, 20)
+        axs2.set_ylabel('Gap Duration (ms)', fontsize = 28)
+        axs2.set_title('Threshold', fontsize = 34)
+        
+        return fig, fig1, fig2
     
     colors = {'WT_NonHL': 'red', 'WT_HL':'orange', 'Df1_NonHL':'black', 'Df1_HL':'grey'}
     fig_on =  Draw_On_Similarity_Properties()
-    fig_off = Draw_Off_Similarity_Properties()
+    fig_off, fig_off_boundary, fig_off_threshold = Draw_Off_Similarity_Properties()
     
-    return fig_on, fig_off
+    return fig_on, fig_off, fig_off_boundary, fig_off_threshold

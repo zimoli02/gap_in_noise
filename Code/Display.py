@@ -28,7 +28,7 @@ class ProjectionParams:
 def main():
 
     subspace_params = SubspaceParams(
-        Best_Subspace_Comparison_All_Group_Property = True
+        Subspace_Comparison_per_Gap = True
     )
     DisplaySubspaceAnalysis.main(subspace_params, group_labels = ['WT_NonHL', 'WT_HL', 'Df1_NonHL', 'Df1_HL'])
     

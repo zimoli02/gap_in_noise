@@ -42,7 +42,6 @@ class Group:
         self.unit_num = self.pop_response.shape[0]
 
         self.pca = analysis.PCA(self.pop_response_stand)
-        self.periods, self.periods_pca = self.Get_PCA_for_periods()
     
     def Get_Group_Recording(self):
         if self.hearing_type == 'NonHL':
@@ -102,7 +101,8 @@ class Group:
 
             
     def Get_Pop_Response_Standardized(self):
-        def Normalize(pop_stand): #standardize each row
+        def Normalize(pop_stand): 
+            # standardize each row
             # X: ndarray, shape (n_features, n_samples)
             #whole_std = max(abs(X-baseline_mean))
             X = pop_stand.copy()
@@ -122,23 +122,6 @@ class Group:
                 meta_psth_z[i,j] = self.pop_response[i,j,:]
                 
         return meta_psth_z
-
-    def Get_PCA_for_periods(self):
-        periods_all = []
-        periods_pca_all = []
-        for gap_idx in range(10):
-            gap_dur = round(self.gaps[gap_idx]*1000+350)
-
-            N1_onset = self.pop_response_stand[:, gap_idx,110:210] # first 100 ms of noise1
-            N2_onset = self.pop_response_stand[:, gap_idx, gap_dur + 10:gap_dur+110] # first 100 ms of noise2
-            N2_offset = self.pop_response_stand[:,gap_idx, gap_dur + 110: gap_dur + 100 + 110] # first 100 ms of post-N2 silence
-            N2_onset_exc_N1_on = N2_onset - N1_onset
-            N2_onset_exc_N1_on_off = N2_onset - N1_onset- N2_offset
-            
-            periods = [N1_onset, N2_onset, N2_onset_exc_N1_on, N2_onset_exc_N1_on_off, N2_offset]
-            periods_all.append(periods)
-            periods_pca_all.append([analysis.PCA(period, multiple_gaps=False) for period in periods])
-        return np.array(periods_all), np.array(periods_pca_all)
             
 class Recording:
     def __init__(self, rec_name):
@@ -160,7 +143,6 @@ class Recording:
         self.response_per_gap = self.Get_Neural_Response_per_Gap()
         
         self.pop_response = self.Get_Pop_Response()
-        self.pop_response_stand = self.Get_Pop_Response_Standardized()
         
         self.Save_File()
          
@@ -336,22 +318,6 @@ class Recording:
         
         self.unit_type = Calculate_Unit_Type(meta_psth[2:])
         return meta_psth[2:]
-        
-            
-    def Get_Pop_Response_Standardized(self):
-        def Normalize(X): #Normalize each row
-            X = X[0]
-            baseline_mean = np.mean(X[50:100])
-            whole_std = max(abs(X-baseline_mean))
-            if whole_std == 0: return X - baseline_mean
-            return (X - baseline_mean) / whole_std
-
-        meta_psth_z = np.zeros(self.pop_response.shape)
-        for i in range(self.pop_response.shape[0]):
-            for j in range(self.pop_response.shape[1]):
-                meta_psth_z[i,j] = Normalize(self.pop_response[i,j].reshape(1,-1)) # 1*200
-                
-        return meta_psth_z
     
     def Save_File(self):
         recording_ = copy.deepcopy(self)
