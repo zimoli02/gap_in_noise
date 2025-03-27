@@ -91,6 +91,17 @@ def Display_Group(params, Group, Label, file_path = '../Images/'):
             fig, fig_Justification = subspace_analysis.Subspace_Similarity_for_All_Gaps(Group, subspace_name, methods, standard_period_length=50, period_length=50, offset_delay = 10)
             SaveFig(fig, sub_file_path +  'Summary')
             SaveFig(fig_Justification, sub_file_path +  'Summary_Justification')
+        
+        methods = ['Trace'] 
+        for method in methods:
+            sub_file_path = check_path(file_path + '/SubspaceEvolution_OnOff/' + method + '/'+ Label + '/')
+            fig_subspace_comparison, fig_on_properties, fig_off_properties = subspace_analysis.Subspace_Similarity_for_All_Gaps_Property(Group, method = method, optimised_param = False)
+            SaveFig(fig_subspace_comparison, sub_file_path + 'Subspace_Comparison')
+            SaveFig(fig_off_properties[0], sub_file_path + 'Off_Similarity')
+            SaveFig(fig_off_properties[1], sub_file_path + 'Off_Similarity_Peak')
+            SaveFig(fig_on_properties[0], sub_file_path + 'On_Similarity')
+            SaveFig(fig_on_properties[1], sub_file_path + 'On_Similarity_Peak')
+            
         print('Subspace_Comparison_per_Gap Completed!')
         plt.close('all')
     
@@ -98,8 +109,9 @@ def Display_Group(params, Group, Label, file_path = '../Images/'):
         methods = ['Trace']
         for method in methods:
             sub_file_path = check_path(file_path + '/BestSubspace/' + method + '/' + Label + '/')
-            fig_best_capacity = subspace_analysis.Period_Capacity_in_Subspace_Comparison(Group, method, max_on_capacity = 75, max_off_capacity = 100, max_timewindow = 100, offset_delay = 10) 
+            fig_best_capacity, fig_explain_find_best_subspace = subspace_analysis.Period_Capacity_in_Subspace_Comparison(Group, method, max_on_capacity = 75, max_off_capacity = 100, max_timewindow = 100, offset_delay = 10) 
             SaveFig(fig_best_capacity, sub_file_path + 'Best_Capacity')
+            SaveFig(fig_explain_find_best_subspace, sub_file_path + 'Explain_Find_Best_Subspace')
         print('Subspace_Capacity_Determination Completed!')
         plt.close('all')
         
@@ -107,10 +119,9 @@ def Display_Group(params, Group, Label, file_path = '../Images/'):
         methods = ['Trace']
         for method in methods:
             sub_file_path = check_path(file_path + '/BestSubspace/' + method + '/' + Label + '/')
-            fig_best_subspace_comparison, fig_explain_find_best_subspace, fig_on_properties, fig_off_properties = subspace_analysis.Best_Subspace_Comparison(Group, method) 
+            fig_best_subspace_comparison, fig_on_properties, fig_off_properties = subspace_analysis.Subspace_Similarity_for_All_Gaps_Property(Group, method, optimised_param = True)
             
             SaveFig(fig_best_subspace_comparison, sub_file_path + 'Best_Subspace_Comparison')
-            SaveFig(fig_explain_find_best_subspace, sub_file_path + 'Explain_Find_Best_Subspace')
             SaveFig(fig_off_properties[0], sub_file_path + 'Best_Off_Similarity')
             SaveFig(fig_off_properties[1], sub_file_path + 'Best_Off_Similarity_Peak')
             SaveFig(fig_on_properties[0], sub_file_path + 'Best_On_Similarity')
@@ -135,17 +146,19 @@ def main(subspace_params, group_labels):
         
     if subspace_params.Best_Subspace_Comparison_All_Group_Property:
         for method in ['Trace']:
-            fig_on, fig_off, fig_off_boundary, fig_off_threshold = subspace_analysis.Best_Subspace_Comparison_All_Group_Property(Groups, method, optimised_param = True)
+            fig_on, fig_off, fig_off_sigmoid, fig_off_boundary, fig_off_threshold = subspace_analysis.Best_Subspace_Comparison_All_Group_Property(Groups, method, optimised_param = True)
             SaveFig(fig_on, imagepath + 'BestSubspace/' + method + '/OnSummary_Optimised')
             SaveFig(fig_off, imagepath + 'BestSubspace/' + method + '/OffSummary_Optimised')
+            SaveFig(fig_off_sigmoid, imagepath + 'BestSubspace/' + method + '/OffSummary_Optimised_Sigmoid')
             SaveFig(fig_off_boundary, imagepath + 'BestSubspace/' + method + '/OffSummary_Optimised_Boundary')
             SaveFig(fig_off_threshold, imagepath + 'BestSubspace/' + method + '/OffSummary_Optimised_Threshold')
             
-            fig_on, fig_off, fig_off_boundary, fig_off_threshold = subspace_analysis.Best_Subspace_Comparison_All_Group_Property(Groups, method, optimised_param = False)
-            SaveFig(fig_on, imagepath + 'BestSubspace/' + method + '/OnSummary_Shared')
-            SaveFig(fig_off, imagepath + 'BestSubspace/' + method + '/OffSummary_Shared')
-            SaveFig(fig_off_boundary, imagepath + 'BestSubspace/' + method + '/OffSummary_Shared_Boundary')
-            SaveFig(fig_off_threshold, imagepath + 'BestSubspace/' + method + '/OffSummary_Shared_Threshold')
+            fig_on, fig_off, fig_off_sigmoid, fig_off_boundary, fig_off_threshold = subspace_analysis.Best_Subspace_Comparison_All_Group_Property(Groups, method, optimised_param = False)
+            SaveFig(fig_on, imagepath + 'SubspaceEvolution_OnOff/' + method + '/OnSummary_Shared')
+            SaveFig(fig_off, imagepath + 'SubspaceEvolution_OnOff/' + method + '/OffSummary_Shared')
+            SaveFig(fig_off_sigmoid, imagepath + 'SubspaceEvolution_OnOff/' + method + '/OffSummary_Shared_Sigmoid')
+            SaveFig(fig_off_boundary, imagepath + 'SubspaceEvolution_OnOff/' + method + '/OffSummary_Shared_Boundary')
+            SaveFig(fig_off_threshold, imagepath + 'SubspaceEvolution_OnOff/' + method + '/OffSummary_Shared_Threshold')
             print('Best_Subspace_Comparison_All_Group_Property Completed')
             print('\n')
 
