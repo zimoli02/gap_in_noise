@@ -244,10 +244,10 @@ class Recording:
     
     def Get_Neural_Response_per_Gap(self):      
         response_per_gap = []
-        for i in range(len(self.gaps)):
+        for gap_idx in range(len(self.gaps)):
             matrix = np.array([[] for i in range(self.response['sig_psth'].shape[0])])
             for trial in range(self.response['sig_psth'].shape[2]):
-                matrix = np.hstack((matrix, self.response['sig_psth'][:, i, trial, :]))
+                matrix = np.hstack((matrix, self.response['sig_psth'][:, gap_idx, trial, :]))
             response_per_gap.append(matrix)
         
         return np.array(response_per_gap)
@@ -289,9 +289,9 @@ class Recording:
                     mean, std = np.mean(off_background), np.std(off_background)
                     flag = Detect_Transient(off_period[12:], mean + 2*std, mean - 2*std)
                     response[1, gap_idx] = flag
-                if np.mean(response[0]) > 0.7 and np.mean(response[1]) < 0.7: unit_type.append('on')
-                if np.mean(response[0]) < 0.7 and np.mean(response[1]) > 0.7: unit_type.append('off')
-                if np.mean(response[0]) > 0.7 and np.mean(response[1]) > 0.7: unit_type.append('both')
+                if np.mean(response[0]) >= 0.7 and np.mean(response[1]) < 0.7: unit_type.append('on')
+                if np.mean(response[0]) < 0.7 and np.mean(response[1]) >= 0.7: unit_type.append('off')
+                if np.mean(response[0]) >= 0.7 and np.mean(response[1]) >= 0.7: unit_type.append('both')
                 if np.mean(response[0]) < 0.7 and np.mean(response[1]) < 0.7: unit_type.append('none')
             return np.array(unit_type)
         

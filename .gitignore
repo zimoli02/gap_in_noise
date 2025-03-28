@@ -5,6 +5,7 @@ Code/*
 !Code/Display.py
 !Code/DisplaySubspaceAnalysis.py
 !Code/DisplayProjectionAnalysis.py
+!Code/DisplayUnitAnalysis.py
 !.gitignore
 !.gitattributes
 !gap-env.yml

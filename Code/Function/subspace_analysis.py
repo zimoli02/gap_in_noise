@@ -1144,3 +1144,82 @@ def Best_Subspace_Comparison_All_Group_Property(Groups, method, optimised_param 
     fig_off, fig_off_sigmoid, fig_off_boundary, fig_off_threshold = Draw_Off_Similarity_Properties()
     
     return fig_on, fig_off, fig_off_sigmoid, fig_off_boundary, fig_off_threshold
+
+
+def Compare_Off_Properties_with_Different_Parameters(Groups, method):
+    def Draw_Off_Similarity_Properties():
+        def Get_Properties(x_data, y_data):
+            popt, pcov = curve_fit(sigmoid, x_data, y_data, p0=[max(y_data), np.median(x_data), 1, 0])
+            L_fit, x0_fit, k_fit, c_fit = popt
+            x_fit = np.linspace(min(x_data), max(x_data), 100)
+            y_fit = sigmoid(x_fit, *popt)
+            r2 = r2_score(y_data, sigmoid(x_data, *popt))
+            
+            lower_boundary = (L_fit-c_fit)*0.01 + c_fit
+            upper_boundary = (L_fit-c_fit)*0.99 + c_fit
+            threshold = np.exp2(inverse_sigmoid((L_fit-c_fit)*0.5 + c_fit, *popt))
+            
+            return lower_boundary, upper_boundary, threshold
+            
+        fig1, axs1 = plt.subplots(1, 2, figsize=(13, 10))  
+        fig2, axs2 = plt.subplots(1, 1, figsize=(7, 10))   
+        for i, (label, Group) in enumerate(Groups.items()):
+            
+            file_path = check_path(subspacepath + f'BestSubspaceComparison/{method}/')
+            with open(file_path + f'{label}.pkl', 'rb') as f:
+                Similarities = pickle.load(f)
+            Off_Similarities_Optimised = Similarities['Off']
+            
+            file_path = check_path(subspacepath + f'SubspaceEvolution/Off/')
+            with open(file_path + f'{label}.pkl', 'rb') as f:
+                data = pickle.load(f)
+            Off_Similarities_shared = np.array([data[i][method] for i in range(10)])
+            
+            peak_values_optimised, peak_values_shared = [], []
+            for gap_idx in range(10):
+                start, end = 250, 250 + 100 
+                
+                Similarity_Index = Off_Similarities_Optimised[gap_idx]
+                peak_values_optimised.append(np.max(Similarity_Index[start:end]))
+                
+                Similarity_Index = Off_Similarities_shared[gap_idx]
+                peak_values_shared.append(np.max(Similarity_Index[start:end]))
+
+            lower_boundary1, upper_boundary1, threshold1 = Get_Properties(np.arange(9), peak_values_optimised[1:])
+            lower_boundary2, upper_boundary2, threshold2 = Get_Properties(np.arange(9), peak_values_shared[1:])
+
+            titles = ['Lower Bound.', 'Upper Bound.']
+            axs1[0].scatter(0, lower_boundary2, color = colors[label], s = 400, facecolors='none')
+            axs1[0].scatter(1, lower_boundary1, color = colors[label], s = 400, facecolors='none')
+            axs1[0].plot([0,1], [lower_boundary2, lower_boundary1], color = colors[label], linewidth = 7)
+            axs1[1].scatter(0, upper_boundary2, color = colors[label], s = 400, facecolors='none')
+            axs1[1].scatter(1, upper_boundary1, color = colors[label], s = 400, facecolors='none')
+            axs1[1].plot([0,1], [upper_boundary2, upper_boundary1], color = colors[label], linewidth = 7)
+            
+            axs2.scatter(0, threshold2, color = colors[label], s = 400, facecolors='none')
+            axs2.scatter(1, threshold1, color = colors[label], s = 400, facecolors='none')
+            axs2.plot([0,1], [threshold2, threshold1], color = colors[label], linewidth = 7)
+
+        for i in range(2):
+            axs1[i].set_yticks([0,1], labels = [0, 1])
+            axs1[i].set_xticks([0,1], ['Shared', 'Optims.'], rotation = 45, ha = 'right')
+            axs1[i].tick_params(axis='both', labelsize=28)
+            axs1[i].set_xlim(-0.8, 1.8)
+            axs1[i].set_ylim(0, 1)
+            axs1[i].set_ylabel('Off-Similarity', fontsize = 28)
+            axs1[i].set_title(titles[i], fontsize = 34)
+        
+        axs2.set_yticks([0, 8, 16, 24], labels = [0, 8, 16, 24])
+        axs2.set_xticks([0,1], ['Shared', 'Optims.'], rotation = 45, ha = 'right')
+        axs2.tick_params(axis='both', labelsize=28)
+        axs2.set_xlim(-0.8, 1.8)
+        axs2.set_ylim(0, 28)
+        axs2.set_ylabel('Gap Duration (ms)', fontsize = 28)
+        axs2.set_title('Threshold', fontsize = 34)
+        
+        return fig1, fig2
+
+    colors = {'WT_NonHL': 'red', 'WT_HL':'orange', 'Df1_NonHL':'black', 'Df1_HL':'grey'}
+    
+    fig1, fig2 = Draw_Off_Similarity_Properties()
+    return fig1, fig2
