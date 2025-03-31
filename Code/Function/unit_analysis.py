@@ -100,7 +100,8 @@ def Determine_Type_All(Group):
     return np.array(unit_type)
 
 ################################################## Colors ##################################################
-response_colors = {'on': 'darkgoldenrod', 'off': 'olivedrab', 'both': 'darkcyan', 'none':'slategray'}
+response_colors = {'on': 'darkorange', 'off': 'olive', 'both': 'dodgerblue', 'none':'grey'}
+response_psth_colors = {'on': 'bisque', 'off': 'darkkhaki', 'both': 'lightskyblue', 'none':'lightgrey'}
 shape_colors = {1: 'pink', 2: 'lightblue', 0:'grey'}
 gap_colors = pal
 group_colors =  {'WT_NonHL': 'chocolate', 'WT_HL':'orange', 'Df1_NonHL':'black', 'Df1_HL':'grey'}
@@ -114,7 +115,7 @@ shade_color = 'gainsboro'
 
 def Draw_Example_Unit():
     def Draw_Unit(neuron_data, unit_type):
-        fig, axs = plt.subplots(1,2,figsize=(10, 10), sharey=True)
+        fig, axs = plt.subplots(1,2,figsize=(7.5, 10), sharey=True)
         
         gap_idx = 9
         gap_dur = round(Group.gaps[gap_idx]*1000)

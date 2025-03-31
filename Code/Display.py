@@ -46,7 +46,7 @@ def main():
     subspace_params = SubspaceParams(
         Subspace_Comparison_All_Group_Property  = True
     )
-    DisplaySubspaceAnalysis.main(subspace_params, group_labels = ['WT_NonHL', 'WT_HL', 'Df1_NonHL', 'Df1_HL'])
+    #DisplaySubspaceAnalysis.main(subspace_params, group_labels = ['WT_NonHL', 'WT_HL', 'Df1_NonHL', 'Df1_HL'])
 
     unit_params = UnitParams(
         Example_Unit_Responsiveness = True,
@@ -54,7 +54,7 @@ def main():
         All_Unit_Spike_Type = True,
         Responsiveness_Comparison = True
     )
-    #DisplayUnitAnalysis.main(unit_params, group_labels = ['WT_NonHL', 'WT_HL', 'Df1_NonHL', 'Df1_HL'])
+    DisplayUnitAnalysis.main(unit_params, group_labels = ['WT_NonHL', 'WT_HL', 'Df1_NonHL', 'Df1_HL'])
 
 if __name__ == "__main__":
     main()

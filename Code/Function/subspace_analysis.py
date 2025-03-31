@@ -36,16 +36,16 @@ subspacepath = '/Volumes/Research/GapInNoise/Data/Subspace/'
 
 
 ################################################## Colors ##################################################
-response_colors = {'on': 'darkgoldenrod', 'off': 'olivedrab', 'both': 'darkcyan', 'none':'slategray'}
+response_colors = {'on': 'darkorange', 'off': 'olive', 'both': 'dodgerblue', 'none':'grey'}
+response_psth_colors = {'on': 'bisque', 'off': 'darkkhaki', 'both': 'lightskyblue', 'none':'lightgrey'}
 shape_colors = {1: 'pink', 2: 'lightblue', 0:'grey'}
 gap_colors = pal
 group_colors =  {'WT_NonHL': 'chocolate', 'WT_HL':'orange', 'Df1_NonHL':'black', 'Df1_HL':'grey'}
 space_colors = {'on': 'green', 'off':'blue'}
-period_colors = {'Pre-N1': 'cornflowerblue', 'Noise1': 'darkgreen', 'Gap': 'darkblue', 'Noise2': 'forestgreen', 'Post-N2': 'royalblue'}
+period_colors = {'Noise1': 'darkgreen', 'Gap': 'darkblue', 'Noise2': 'forestgreen', 'Post-N2': 'royalblue'}
 space_colors_per_gap = {'on': sns.color_palette('BuGn', 11), 'off':sns.color_palette('GnBu', 11)}
 method_colors = {'Pairwise':'#0047AB', 'CCA':'#DC143C', 'RV':'#228B22', 'Trace':'#800080'}
 shade_color = 'gainsboro'
-
 ################################################## Basic Functions ##################################################
 
 def check_path(path):
