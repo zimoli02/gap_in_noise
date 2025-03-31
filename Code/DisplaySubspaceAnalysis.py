@@ -141,33 +141,38 @@ def main(subspace_params, group_labels):
 
     if subspace_params.Subspace_Comparison_Simulation:
         Display_Subspace_Comparison_Simulation(n_observation = 100, n_feature = 50, file_path = imagepath)
+        
+        plt.close('all') 
         print('Subspace_Comparison_Simulation Completed')
         print('\n')
         
-    if subspace_params.Best_Subspace_Comparison_All_Group_Property:
+    if subspace_params.Subspace_Comparison_All_Group_Property:
         for method in ['Trace']:
-            fig_on, fig_off, fig_off_sigmoid, fig_off_boundary, fig_off_threshold = subspace_analysis.Best_Subspace_Comparison_All_Group_Property(Groups, method, optimised_param = True)
-            sub_file_path = check_path(imagepath + 'BestSubspace/' + method +'/')
-            SaveFig(fig_on, sub_file_path + 'OnSummary_Optimised')
-            SaveFig(fig_off, sub_file_path + 'OffSummary_Optimised')
-            SaveFig(fig_off_sigmoid, sub_file_path + 'OffSummary_Optimised_Sigmoid')
-            SaveFig(fig_off_boundary, sub_file_path + 'OffSummary_Optimised_Boundary')
-            SaveFig(fig_off_threshold, sub_file_path + 'OffSummary_Optimised_Threshold')
-            
-            fig_on, fig_off, fig_off_sigmoid, fig_off_boundary, fig_off_threshold = subspace_analysis.Best_Subspace_Comparison_All_Group_Property(Groups, method, optimised_param = False)
+            fig_on, fig_off, fig_off_sigmoid = subspace_analysis.Subspace_Comparison_All_Group_Property(Groups, method, optimised_param = False)
             sub_file_path = check_path(imagepath + 'SubspaceEvolution_OnOff/' + method +'/')
             SaveFig(fig_on, sub_file_path + 'OnSummary_Shared')
             SaveFig(fig_off, sub_file_path + 'OffSummary_Shared')
             SaveFig(fig_off_sigmoid, sub_file_path + 'OffSummary_Shared_Sigmoid')
+            
+            fig_off_boundary, fig_off_threshold = subspace_analysis.Subspace_Comparison_All_Group_Property_Multiple_Timewindows(Groups, method)
             SaveFig(fig_off_boundary, sub_file_path + 'OffSummary_Shared_Boundary')
             SaveFig(fig_off_threshold, sub_file_path + 'OffSummary_Shared_Threshold')
-            print('Best_Subspace_Comparison_All_Group_Property Completed')
-            print('\n')
+            
+            fig_on, fig_off, fig_off_sigmoid = subspace_analysis.Subspace_Comparison_All_Group_Property(Groups, method, optimised_param = True)
+            sub_file_path = check_path(imagepath + 'BestSubspace/' + method +'/')
+            SaveFig(fig_on, sub_file_path + 'OnSummary_Optimised')
+            SaveFig(fig_off, sub_file_path + 'OffSummary_Optimised')
+            SaveFig(fig_off_sigmoid, sub_file_path + 'OffSummary_Optimised_Sigmoid')
             
             fig_off_boundary_compare, fig_off_threshold_compare = subspace_analysis.Compare_Off_Properties_with_Different_Parameters(Groups, method)
             sub_file_path = check_path(imagepath + 'BestSubspace/' + method +'/')
             SaveFig(fig_off_boundary_compare, sub_file_path + 'OffSummary_Boundary_Compare')
             SaveFig(fig_off_threshold_compare, sub_file_path + 'OffSummary_Threshold_Compare')
+            
+            plt.close('all') 
+            
+            print('Subspace_Comparison_All_Group_Property Completed')
+            print('\n')
 
 if __name__ == "__main__":
     main()

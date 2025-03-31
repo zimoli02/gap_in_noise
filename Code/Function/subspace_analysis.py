@@ -8,7 +8,7 @@ import pickle
 import scipy.stats as stats 
 from scipy.stats import sem
 from scipy.ndimage import gaussian_filter1d
-from scipy.optimize import curve_fit
+from scipy.optimize import curve_fit, OptimizeWarning
 from scipy.linalg import svd, orth
 from sklearn.decomposition import PCA as SKPCA
 from sklearn.linear_model import LinearRegression
@@ -34,6 +34,17 @@ plt.rcParams['savefig.transparent'] = True
 
 subspacepath = '/Volumes/Research/GapInNoise/Data/Subspace/'
 
+
+################################################## Colors ##################################################
+response_colors = {'on': 'darkgoldenrod', 'off': 'olivedrab', 'both': 'darkcyan', 'none':'slategray'}
+shape_colors = {1: 'pink', 2: 'lightblue', 0:'grey'}
+gap_colors = pal
+group_colors =  {'WT_NonHL': 'chocolate', 'WT_HL':'orange', 'Df1_NonHL':'black', 'Df1_HL':'grey'}
+space_colors = {'on': 'green', 'off':'blue'}
+period_colors = {'Pre-N1': 'cornflowerblue', 'Noise1': 'darkgreen', 'Gap': 'darkblue', 'Noise2': 'forestgreen', 'Post-N2': 'royalblue'}
+space_colors_per_gap = {'on': sns.color_palette('BuGn', 11), 'off':sns.color_palette('GnBu', 11)}
+method_colors = {'Pairwise':'#0047AB', 'CCA':'#DC143C', 'RV':'#228B22', 'Trace':'#800080'}
+shade_color = 'gainsboro'
 
 ################################################## Basic Functions ##################################################
 
@@ -209,7 +220,7 @@ def inverse_sigmoid(y, L, x0, k, c):
 
 ################################################## Non-Specific Plotting ##################################################
 
-def Draw_Standard_Subspace_Location(Group, subspace_name, period_length = 100, offset_delay = 10):
+def Draw_Standard_Subspace_Location(Group, subspace_name, period_length = 50, offset_delay = 10):
     gap_idx = 0
     gap_dur = int(Group.gaps[gap_idx]*1000)
     if subspace_name == 'On':
@@ -228,16 +239,13 @@ def Draw_Standard_Subspace_Location(Group, subspace_name, period_length = 100, o
     fig, axs = plt.subplots(1,1,figsize = (20, 5))
     axs.plot(np.arange(1000), Sound, color = 'black')
     ymin, ymax = 10, 60
-    axs.fill_between(np.arange(len(gap_label)), ymin, ymax, where= gap_label == 1, color='lightgrey')
+    axs.fill_between(np.arange(len(gap_label)), ymin, ymax, where= gap_label == 1, color=shade_color)
     axs.fill_between(np.arange(len(gap_label))[start:end], ymin, ymax, where= gap_label[start:end] == on_off, color='lightcoral')
     axs.set_yticks([10,60])
     axs.tick_params(axis='both', labelsize = 43)
     axs.set_xlabel('Time (ms)', fontsize = 40)
     axs.set_ylabel('Sound Level (dB)', fontsize = 32)
     axs.annotate('Noise 1+2', xy=(190, 62), fontsize=40, color='black')
-    #axs.annotate('Noise 1', xy=(180, 62), fontsize=36, color='black')
-    #axs.annotate('Noise 2', xy=(100 + 250 + 256, 62), fontsize=36, color='black')
-    #axs.annotate('Gap', xy=(100 + 250 + 100, 12), fontsize=36, color='black')
     axs.set_title(f'{subspace_name}-Space Location', fontsize = 54, fontweight = 'bold', y = 1.15)
 
     return fig
@@ -302,7 +310,7 @@ def Subspace_Comparison_Simulation(n_observation, n_feature):
 
 ################################################## Group-Specific Analysis ##################################################
 
-def Standard_Subspace_Comparison(Group, subspace_name, period_length = 100, offset_delay = 10):
+def Standard_Subspace_Comparison(Group, subspace_name, period_length = 50, offset_delay = 10):
     def Get_Data_Periods(subspace_name):
         periods = []
         for gap_idx in range(10):
@@ -338,8 +346,7 @@ def Standard_Subspace_Comparison(Group, subspace_name, period_length = 100, offs
         return axs
     
     def Draw_Compare_Subspace_Similarity_Result_Test(axs, periods, subspace_name, method):
-        
-        
+
         Similarity_Indices = []
         for shuffle_method in [False, 'Shuffle_Neuron', 'Add_Neuron', 'Add_Noise', 'Rotate']:
             Similarity_Index = Compare_Subspace_Similarity(periods, method = method, shuffle_method = shuffle_method)
@@ -380,7 +387,7 @@ def Standard_Subspace_Comparison(Group, subspace_name, period_length = 100, offs
     fig_Trace = Draw_Compare_Subspace_Similarity(periods, subspace_name, method = 'Trace') 
     return [fig_Pairwise, fig_CCA, fig_RV, fig_Trace]
 
-def Subspace_Similarity_for_All_Gaps(Group, subspace_name, methods, standard_period_length=100, period_length=100, offset_delay = 10):
+def Subspace_Similarity_for_All_Gaps(Group, subspace_name, methods, standard_period_length=50, period_length=50, offset_delay = 10):
     def Get_Standard_Period():
         if subspace_name == 'On':
             start, end = 100, 100 + standard_period_length
@@ -419,17 +426,16 @@ def Subspace_Similarity_for_All_Gaps(Group, subspace_name, methods, standard_per
        
     def Draw_Similarity_Index_for_All_Gap(Similarity_Index_for_All_Gap):
         fig, axs = plt.subplots(10, 1, figsize=(20, 70))  
-        check_point = 100
         for gap_idx in range(10):
             Similarity_Indices = Similarity_Index_for_All_Gap[gap_idx]
             gap_dur = round(Group.gaps[gap_idx]*1000)
 
             for method in methods:
-                axs[gap_idx].plot(np.arange(check_point, 1000), Similarity_Indices[method], color = colors[method], linewidth = 7, alpha = 0.9)
+                axs[gap_idx].plot(np.arange(100, 1000), Similarity_Indices[method], color = method_colors[method], linewidth = 7, alpha = 0.9)
 
             ymin, ymax = 0, 1
             mask = Group.gaps_label[gap_idx] == 1
-            axs[gap_idx].fill_between(np.arange(len(Group.gaps_label[gap_idx])), ymin, ymax, where=mask, color = 'lightgrey')
+            axs[gap_idx].fill_between(np.arange(len(Group.gaps_label[gap_idx])), ymin, ymax, where=mask, color = shade_color)
 
             axs[gap_idx].set_xticks([], labels = [])
             axs[gap_idx].set_yticks([0,1], labels = [0, 1])
@@ -441,7 +447,7 @@ def Subspace_Similarity_for_All_Gaps(Group, subspace_name, methods, standard_per
         
         lines, labels = [], []
         for method in methods:
-            line = Line2D([0], [0], color=colors[method], lw=6, alpha = 0.9)
+            line = Line2D([0], [0], color=method_colors[method], lw=6, alpha = 0.9)
             lines.append(line)
             labels.append(Comparison_Method_Full_Title(method))
         legend = fig.legend(lines, labels, loc='upper right', bbox_to_anchor=(0.9, 0.88), ncol=1, fontsize=32)
@@ -479,7 +485,7 @@ def Subspace_Similarity_for_All_Gaps(Group, subspace_name, methods, standard_per
                 
                 p_values = [stats.ttest_ind(Similarities[i], Similarities[k])[1] for k in range(4)] 
                 
-                axs[j].bar([0,1,2,3], Means, yerr=np.array(Stds)*3, color=colors[method], alpha=0.6, capsize=10, width=0.8, error_kw={'capthick': 3, 'elinewidth': 2.5})
+                axs[j].bar([0,1,2,3], Means, yerr=np.array(Stds)*3, color=method_colors[method], alpha=0.6, capsize=10, width=0.8, error_kw={'capthick': 3, 'elinewidth': 2.5})
                 
                 max_y = max(Means) + max(Stds)*3 + 0.05
                 for k in range(4):
@@ -498,7 +504,6 @@ def Subspace_Similarity_for_All_Gaps(Group, subspace_name, methods, standard_per
     
     label = Group.geno_type + '_' + Group.hearing_type
     standard_period = Get_Standard_Period()
-    colors = {'Pairwise':'#0047AB', 'CCA':'#DC143C', 'RV':'#228B22', 'Trace':'#800080'}
     Similarity_Index_for_All_Gap = Get_Similarity_Index_for_All_Gap(standard_period)
     fig = Draw_Similarity_Index_for_All_Gap(Similarity_Index_for_All_Gap)
     fig_justification = Justify_the_Separation_Level_for_each_Space_each_Method()
@@ -516,10 +521,10 @@ def Period_Capacity_in_Subspace_Comparison(Group, method, max_on_capacity = 75, 
         for i in range(2):
             ymin, ymax = 0, 1
             mask = Group.gaps_label[gap_idx] == 1
-            axs[i].fill_between(np.arange(len(Group.gaps_label[gap_idx])), ymin, ymax, where=mask, color = 'gainsboro')
+            axs[i].fill_between(np.arange(len(Group.gaps_label[gap_idx])), ymin, ymax, where=mask, color = shade_color)
             
-        axs[0].plot(np.arange(100, 1000), x, color = 'red', lw=7)
-        axs[1].plot(np.arange(100, 1000), y, color = 'blue', lw=7)
+        axs[0].plot(np.arange(100, 1000), x, color = space_colors['on'], lw=7)
+        axs[1].plot(np.arange(100, 1000), y, color = space_colors['off'], lw=7)
 
         dotsize = 1000
         max_on_in_x = (np.max(x[:100]), np.argsort(x[:100])[::-1][0])
@@ -887,12 +892,12 @@ def Subspace_Similarity_for_All_Gaps_Property(Group, method, optimised_param = T
             Off_Similarity_Index = Off_Similarities[gap_idx]
             
             gap_dur = round(Group.gaps[gap_idx]*1000)
-            axs[gap_idx].plot(np.arange(check_point, 1000), On_Similarity_Index, color = 'red', linewidth = 7)
-            axs[gap_idx].plot(np.arange(check_point, 1000), Off_Similarity_Index, color = 'blue', linewidth = 7)
+            axs[gap_idx].plot(np.arange(check_point, 1000), On_Similarity_Index, color = space_colors['on'], linewidth = 7)
+            axs[gap_idx].plot(np.arange(check_point, 1000), Off_Similarity_Index, color = space_colors['off'], linewidth = 7)
             
             ymin, ymax = 0, 1
             mask = Group.gaps_label[gap_idx] == 1
-            axs[gap_idx].fill_between(np.arange(len(Group.gaps_label[gap_idx])), ymin, ymax, where=mask, color = 'lightgrey')
+            axs[gap_idx].fill_between(np.arange(len(Group.gaps_label[gap_idx])), ymin, ymax, where=mask, color = shade_color)
 
             axs[gap_idx].set_xticks([], labels = [])
             axs[gap_idx].set_yticks([0,1], labels = [0, 1])
@@ -902,8 +907,8 @@ def Subspace_Similarity_for_All_Gaps_Property(Group, method, optimised_param = T
         axs[9].set_xlabel('Time (ms)', fontsize = 36, fontweight = 'bold')
         fig.suptitle(f'Compare with Standard Spaces', fontsize = 54, fontweight = 'bold', y=0.9)
         
-        on_line = Line2D([0], [0], color='red', lw=6)
-        off_line = Line2D([0], [0], color='blue', lw=6)
+        on_line = Line2D([0], [0], color=space_colors['on'], lw=6)
+        off_line = Line2D([0], [0], color=space_colors['off'], lw=6)
         lines, labels = [on_line, off_line], ['On-Similarity', 'Off-Similarity']
         fig.legend(lines, labels, loc='upper right', bbox_to_anchor=(0.9, 0.88), ncol=1, fontsize=32)
         return fig
@@ -921,7 +926,7 @@ def Subspace_Similarity_for_All_Gaps_Property(Group, method, optimised_param = T
             start, end = 250 + gap_dur, 250 + gap_dur + plot_length
             
             Similarity_Index = Similarity_Indices[gap_idx]
-            axs.plot(np.arange(plot_length), Similarity_Index[start:end], color = pal[gap_idx], linewidth = 6)
+            axs.plot(np.arange(plot_length), Similarity_Index[start:end], color = space_colors_per_gap['on'][gap_idx], linewidth = 6)
                 
             delays.append(Find_Threshold(Similarity_Index[start:end]))
             peak_values.append(np.max(Similarity_Index[start:end]))
@@ -940,8 +945,8 @@ def Subspace_Similarity_for_All_Gaps_Property(Group, method, optimised_param = T
         
         fig2, axs = plt.subplots(1, 1, figsize=(10, 10))  
         for gap_idx in range(1, 10):
-            axs.scatter(gap_idx, peak_values[gap_idx], color = pal[gap_idx], s = 400)
-        axs.plot(np.arange(1, 10), peak_values[1:], color = 'blue', linewidth = 5)
+            axs.scatter(gap_idx, peak_values[gap_idx], color = space_colors_per_gap['on'][gap_idx], s = 400)
+        axs.plot(np.arange(1, 10), peak_values[1:], color = space_colors['on'], linewidth = 5)
         #axs.legend(loc = 'upper left', fontsize = 24)
         
         axs.set_xticks([1, 3, 5, 7, 9], labels = ['2$^0$', '2$^2$', '2$^4$', '2$^6$', '2$^8$'])
@@ -965,7 +970,7 @@ def Subspace_Similarity_for_All_Gaps_Property(Group, method, optimised_param = T
             gap_dur = round(Group.gaps[gap_idx]*1000)
             Similarity_Index = Similarity_Indices[gap_idx]
             start, end= 250, 250 + gap_dur + 100
-            axs.plot(np.arange(100 + gap_dur), Similarity_Index[start:end], color = pal[gap_idx], linewidth = 6)
+            axs.plot(np.arange(100 + gap_dur), Similarity_Index[start:end], color = space_colors_per_gap['off'][gap_idx], linewidth = 6)
             axs.plot([gap_dur, gap_dur], [0, Similarity_Index[250 + gap_dur]], color = 'grey', linestyle = ':', linewidth = 4)
             delays.append(Find_Threshold(Similarity_Index[start:end]))
             peak_values.append(np.max(Similarity_Index[start:end]))
@@ -984,8 +989,8 @@ def Subspace_Similarity_for_All_Gaps_Property(Group, method, optimised_param = T
         
         fig2, axs = plt.subplots(1, 1, figsize=(10, 10))  
         for gap_idx in range(1, 10):
-            axs.scatter(gap_idx, peak_values[gap_idx], color = pal[gap_idx], s = 400)
-        axs.plot(np.arange(1, 10), peak_values[1:], color = 'green', linewidth = 5)
+            axs.scatter(gap_idx, peak_values[gap_idx], color = space_colors_per_gap['off'][gap_idx], s = 400)
+        axs.plot(np.arange(1, 10), peak_values[1:], color = space_colors['off'], linewidth = 5)
         
         axs.set_xticks([1, 3, 5, 7, 9], labels = ['2$^0$', '2$^2$', '2$^4$', '2$^6$', '2$^8$'])
         axs.set_yticks([0,1], labels = [0, 1])
@@ -1023,7 +1028,7 @@ def Subspace_Similarity_for_All_Gaps_Property(Group, method, optimised_param = T
 
 ################################################## Summary for All Groups ##################################################
 
-def Best_Subspace_Comparison_All_Group_Property(Groups, method, optimised_param = True):
+def Subspace_Comparison_All_Group_Property(Groups, method, optimised_param = True):
     def Draw_On_Similarity_Properties():
         fig, axs = plt.subplots(1, 1, figsize=(10, 10))  
         for i, (label, Group) in enumerate(Groups.items()):
@@ -1044,8 +1049,8 @@ def Best_Subspace_Comparison_All_Group_Property(Groups, method, optimised_param 
                 start, end = 250 + gap_dur, 250 + gap_dur + 100 
                 Similarity_Index = On_Similarities[gap_idx]
                 peak_values.append(np.max(Similarity_Index[start:end]))
-                axs.scatter(gap_idx, peak_values[gap_idx], color = pal[gap_idx], s = 400)
-            axs.plot(np.arange(10), peak_values, color = colors[label], linewidth = 5, label = label)
+                axs.scatter(gap_idx, peak_values[gap_idx], color = space_colors_per_gap['on'][gap_idx], s = 400)
+            axs.plot(np.arange(10), peak_values, color = group_colors[label], linewidth = 5, label = label)
         
         axs.legend(loc = 'upper left', fontsize = 28)
         axs.set_xticks([1, 3, 5, 7, 9], labels = ['2$^0$', '2$^2$', '2$^4$', '2$^6$', '2$^8$'])
@@ -1057,11 +1062,9 @@ def Best_Subspace_Comparison_All_Group_Property(Groups, method, optimised_param 
         return fig
     
     def Draw_Off_Similarity_Properties():
-
         fig, axs = plt.subplots(1, 1, figsize=(10, 10))
         fig_, axs_ = plt.subplots(1, 1, figsize=(10, 10)) 
-        fig1, axs1 = plt.subplots(1, 2, figsize=(20, 10))  
-        fig2, axs2 = plt.subplots(1, 1, figsize=(10, 10))   
+         
         for i, (label, Group) in enumerate(Groups.items()):
             if optimised_param:
                 file_path = check_path(subspacepath + f'BestSubspaceComparison/{method}/')
@@ -1080,9 +1083,9 @@ def Best_Subspace_Comparison_All_Group_Property(Groups, method, optimised_param 
                 start, end = 250, 250 + 100 
                 Similarity_Index = Off_Similarities[gap_idx]
                 peak_values.append(np.max(Similarity_Index[start:end]))
-                axs.scatter(gap_idx, peak_values[gap_idx], color = pal[gap_idx], s = 400)
-                axs_.scatter(gap_idx, peak_values[gap_idx], color = pal[gap_idx], s = 400)
-            axs.plot(np.arange(10), peak_values, color = colors[label], linewidth = 5, label = label)
+                axs.scatter(gap_idx, peak_values[gap_idx], color = space_colors_per_gap['off'][gap_idx], s = 400)
+                axs_.scatter(gap_idx, peak_values[gap_idx], color = space_colors_per_gap['off'][gap_idx], s = 400)
+            axs.plot(np.arange(10), peak_values, color = group_colors[label], linewidth = 5, label = label)
             
             x_data = np.arange(9)
             y_data = peak_values[1:]
@@ -1092,19 +1095,7 @@ def Best_Subspace_Comparison_All_Group_Property(Groups, method, optimised_param 
             y_fit = sigmoid(x_fit, *popt)
             r2 = r2_score(y_data, sigmoid(x_data, *popt))
             print(f'{label}: R-Squared for sigmoidal fit is {r2} when parameter optimisation is {optimised_param}')
-            axs_.plot(x_fit+1, y_fit, color = colors[label], linewidth = 5, label = label)
-            
-            y_percents = [0.01, 0.99]
-            titles = ['Lower Bound.', 'Upper Bound.']
-            for j in range(2):
-                y_percent = y_percents[j]
-                x_ = (L_fit-c_fit)*y_percent + c_fit
-                axs1[j].bar(i, x_, color = colors[label], width=0.8)
-            
-            y_percent = 0.5
-            x_ = inverse_sigmoid((L_fit-c_fit)*y_percent + c_fit, *popt)
-            threshold_gap_dur = np.exp2(x_)
-            axs2.bar(i, threshold_gap_dur, color = colors[label], width=0.8)
+            axs_.plot(x_fit+1, y_fit, color = group_colors[label], linewidth = 5, label = label)
                 
         axs.legend(loc = 'upper left', fontsize = 28)
         axs.set_xticks([1, 3, 5, 7, 9], labels = ['2$^0$', '2$^2$', '2$^4$', '2$^6$', '2$^8$'])
@@ -1122,29 +1113,122 @@ def Best_Subspace_Comparison_All_Group_Property(Groups, method, optimised_param 
         axs_.set_ylabel('Similarity Index', fontsize = 40)
         fig_.suptitle('Max. Off-Similarity\nSigmoid-Fit', fontsize = 54, fontweight = 'bold', y = 1.0)
         
+        return fig, fig_
+    
+    fig_on =  Draw_On_Similarity_Properties()
+    fig_off, fig_off_sigmoid = Draw_Off_Similarity_Properties()
+    
+    return fig_on, fig_off, fig_off_sigmoid
+
+def Subspace_Comparison_All_Group_Property_Multiple_Timewindows(Groups, method):
+    def Get_Data_Points_for_each_Timewindow():
+        max_timewindow = 100
+        timewindows = np.arange(5, max_timewindow+1, 5)
+        lower_boundaries, upper_boundaries, thresholds = {label:[] for label in Groups.keys()}, {label:[] for label in Groups.keys()}, {label:[] for label in Groups.keys()}
+        for i, (label, Group) in enumerate(Groups.items()):
+            file_path = check_path(subspacepath + f'SubspaceEvolution/Off/{label}/')
+            for t in range(len(timewindows)):
+                with open(file_path + f'{timewindows[t]}.pkl', 'rb') as f:
+                    data = pickle.load(f)
+                Off_Similarities = np.array([data[i][method] for i in range(10)])
+                
+                # fit sigmoid curves for offset evolution, for each timewindow
+                peak_values = []
+                for gap_idx in range(10):
+                    gap_dur = round(Group.gaps[gap_idx]*1000)
+                    start, end = 250, 250 + 100 
+                    Similarity_Index = Off_Similarities[gap_idx]
+                    peak_values.append(np.max(Similarity_Index[start:end]))
+                
+                x_data = np.arange(9)
+                y_data = peak_values[1:]
+                try:
+                    popt, pcov = curve_fit(sigmoid, x_data, y_data, p0=[max(y_data), np.median(x_data), 1, 0])
+                    L_fit, x0_fit, k_fit, c_fit = popt
+                    x_fit = np.linspace(min(x_data), max(x_data), 100)
+                    y_fit = sigmoid(x_fit, *popt)
+                    r2 = r2_score(y_data, sigmoid(x_data, *popt))
+                    if r2 >= 0.7:
+                        up = L_fit + c_fit 
+                        low = c_fit
+                        lower_boundaries[label].append((up-low)*0.01 + low)
+                        upper_boundaries[label].append((up-low)*0.99 + low)
+                        thresholds[label].append(np.exp2(inverse_sigmoid((up-low)*0.5 + low, *popt)))
+                    else:
+                        print(f"Warning: Curve fitting poor for group {label} / t = {timewindows[t]}, skipped this one")
+                except (RuntimeError, OptimizeWarning):
+                    print(f"Warning: Curve fitting failed for group {label} / t = {timewindows[t]}, skipped this one")
+
+            lower_boundaries[label] = np.array(lower_boundaries[label])
+            upper_boundaries[label] = np.array(upper_boundaries[label])
+            thresholds[label] = np.array(thresholds[label])
+
+        return lower_boundaries, upper_boundaries, thresholds
+    
+    def Draw_Off_Similarity_Properties_with_Multiple_Timewindows():
+        def Draw_Violin_Plot(axs, violin_data):
+            labels = ['WT_NonHL', 'WT_HL','Df1_NonHL', 'Df1_HL']
+            
+            # Create violin plot
+            parts = axs.violinplot(violin_data, positions=range(len(labels)),
+                                    showmeans=True, showextrema=True, showmedians=False)
+                    
+            # Customize violin plot colors
+            for j, pc in enumerate(parts['bodies']):
+                label = labels[j]
+                pc.set_facecolor(group_colors[label])
+                pc.set_alpha(0.7)
+            
+            # Customize other violin plot elements
+            #parts['cmedians'].set_color('black')  # Median marker color
+            parts['cbars'].set_color('black')   # Center bar color
+            parts['cmaxes'].set_color('black')  # Max marker color
+            parts['cmins'].set_color('black')   # Min marker color
+            
+            '''# Add true parameter values as red horizontal lines
+            for pos, true_val in enumerate(true_values):
+                # Draw a horizontal red line at the true parameter value
+                # Make it slightly wider than the violin plot for visibility
+                line_width = 0.3  # Adjust this value to change the length of the red line
+                axs.hlines(true_val, pos-line_width/2, pos+line_width/2, 
+                                    colors='red', linewidth=2, label='True Value' if pos == 0 else "")'''
+            
+            axs.axhline(y=0, color = 'grey', linestyle = '--')
+            axs.spines['top'].set_visible(False)
+            axs.spines['right'].set_visible(False)
+            
+            return axs
+
+        lower_boundaries, upper_boundaries, thresholds = Get_Data_Points_for_each_Timewindow()
+        
+        titles= ['Lower Bound.', 'Upper Bound.']
+        fig1, axs1 = plt.subplots(1, 2, figsize=(20, 10))  
+        lower_boundaries_data = [value for _, value in lower_boundaries.items()]
+        axs1[0] = Draw_Violin_Plot(axs1[0], lower_boundaries_data)
+        upper_boundaries_data = [value for _, value in upper_boundaries.items()]
+        axs1[1] = Draw_Violin_Plot(axs1[1], upper_boundaries_data)
         for i in range(2):
             axs1[i].set_yticks([0,1], labels = [0, 1])
             axs1[i].set_xticks([0,1,2,3], ['WT_NonHL', 'WT_HL', 'Df1_NonHL', 'Df1_HL'], rotation = 45, ha = 'right')
             axs1[i].tick_params(axis='both', labelsize=28)
-            axs1[i].set_ylim(0, 1)
+            axs1[i].set_ylim(0, 1.2)
             axs1[i].set_ylabel('Off-Similarity', fontsize = 28)
             axs1[i].set_title(titles[i], fontsize = 34)
         
-        axs2.set_yticks([0, 8, 16, 24], labels = [0, 8, 16, 24])
+        fig2, axs2 = plt.subplots(1, 1, figsize=(10, 10)) 
+        thresholds_data = [value for _, value in thresholds.items()]
+        axs2 = Draw_Violin_Plot(axs2, thresholds_data)
+        axs2.set_yticks([0, 8, 16, 24, 32, 40], labels = [0, 8, 16, 24, 32, 40])
         axs2.set_xticks([0,1,2,3], ['WT_NonHL', 'WT_HL', 'Df1_NonHL', 'Df1_HL'], rotation = 45, ha = 'right')
         axs2.tick_params(axis='both', labelsize=28)
-        axs2.set_ylim(0, 28)
+        axs2.set_ylim(0, 41)
         axs2.set_ylabel('Gap Duration (ms)', fontsize = 28)
         axs2.set_title('Threshold', fontsize = 34)
         
-        return fig, fig_, fig1, fig2
+        return fig1, fig2 
     
-    colors = {'WT_NonHL': 'red', 'WT_HL':'orange', 'Df1_NonHL':'black', 'Df1_HL':'grey'}
-    fig_on =  Draw_On_Similarity_Properties()
-    fig_off, fig_off_sigmoid, fig_off_boundary, fig_off_threshold = Draw_Off_Similarity_Properties()
-    
-    return fig_on, fig_off, fig_off_sigmoid, fig_off_boundary, fig_off_threshold
-
+    fig_off_boundary, fig_off_threshold = Draw_Off_Similarity_Properties_with_Multiple_Timewindows()
+    return fig_off_boundary, fig_off_threshold
 
 def Compare_Off_Properties_with_Different_Parameters(Groups, method):
     def Draw_Off_Similarity_Properties():
@@ -1189,16 +1273,16 @@ def Compare_Off_Properties_with_Different_Parameters(Groups, method):
             lower_boundary2, upper_boundary2, threshold2 = Get_Properties(np.arange(9), peak_values_shared[1:])
 
             titles = ['Lower Bound.', 'Upper Bound.']
-            axs1[0].scatter(0, lower_boundary2, color = colors[label], s = 400, facecolors='none')
-            axs1[0].scatter(1, lower_boundary1, color = colors[label], s = 400, facecolors='none')
-            axs1[0].plot([0,1], [lower_boundary2, lower_boundary1], color = colors[label], linewidth = 7)
-            axs1[1].scatter(0, upper_boundary2, color = colors[label], s = 400, facecolors='none')
-            axs1[1].scatter(1, upper_boundary1, color = colors[label], s = 400, facecolors='none')
-            axs1[1].plot([0,1], [upper_boundary2, upper_boundary1], color = colors[label], linewidth = 7)
+            axs1[0].scatter(0, lower_boundary2, color = group_colors[label], s = 400, facecolors='none')
+            axs1[0].scatter(1, lower_boundary1, color = group_colors[label], s = 400, facecolors='none')
+            axs1[0].plot([0,1], [lower_boundary2, lower_boundary1], color = group_colors[label], linewidth = 7)
+            axs1[1].scatter(0, upper_boundary2, color = group_colors[label], s = 400, facecolors='none')
+            axs1[1].scatter(1, upper_boundary1, color = group_colors[label], s = 400, facecolors='none')
+            axs1[1].plot([0,1], [upper_boundary2, upper_boundary1], color = group_colors[label], linewidth = 7)
             
-            axs2.scatter(0, threshold2, color = colors[label], s = 400, facecolors='none')
-            axs2.scatter(1, threshold1, color = colors[label], s = 400, facecolors='none')
-            axs2.plot([0,1], [threshold2, threshold1], color = colors[label], linewidth = 7)
+            axs2.scatter(0, threshold2, color = group_colors[label], s = 400, facecolors='none')
+            axs2.scatter(1, threshold1, color = group_colors[label], s = 400, facecolors='none')
+            axs2.plot([0,1], [threshold2, threshold1], color = group_colors[label], linewidth = 7)
 
         for i in range(2):
             axs1[i].set_yticks([0,1], labels = [0, 1])
@@ -1218,8 +1302,6 @@ def Compare_Off_Properties_with_Different_Parameters(Groups, method):
         axs2.set_title('Threshold', fontsize = 34)
         
         return fig1, fig2
-
-    colors = {'WT_NonHL': 'red', 'WT_HL':'orange', 'Df1_NonHL':'black', 'Df1_HL':'grey'}
     
     fig1, fig2 = Draw_Off_Similarity_Properties()
     return fig1, fig2

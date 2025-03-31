@@ -99,6 +99,16 @@ def Determine_Type_All(Group):
         unit_type.append(single_unit_type)
     return np.array(unit_type)
 
+################################################## Colors ##################################################
+response_colors = {'on': 'darkgoldenrod', 'off': 'olivedrab', 'both': 'darkcyan', 'none':'slategray'}
+shape_colors = {1: 'pink', 2: 'lightblue', 0:'grey'}
+gap_colors = pal
+group_colors =  {'WT_NonHL': 'chocolate', 'WT_HL':'orange', 'Df1_NonHL':'black', 'Df1_HL':'grey'}
+space_colors = {'on': 'green', 'off':'blue'}
+period_colors = {'Noise1': 'darkgreen', 'Gap': 'darkblue', 'Noise2': 'forestgreen', 'Post-N2': 'royalblue'}
+space_colors_per_gap = {'on': sns.color_palette('BuGn', 11), 'off':sns.color_palette('GnBu', 11)}
+method_colors = {'Pairwise':'#0047AB', 'CCA':'#DC143C', 'RV':'#228B22', 'Trace':'#800080'}
+shade_color = 'gainsboro'
 
 ################################################## Non-Specific Plotting ##################################################
 
@@ -164,31 +174,26 @@ def Draw_Example_Unit():
 
 
 def Draw_Unit_Response_Type_All_Group(Groups):
-    colors = {'WT_NonHL': 'red', 'WT_HL':'orange', 'Df1_NonHL':'black', 'Df1_HL':'grey'}
-    
     fig, axs = plt.subplots(1, 1, figsize=(10, 10))
     types = ['on', 'both', 'off', 'none']
     for i, (label, Group) in enumerate(Groups.items()):
         unit_type = Determine_Type_All(Group)
-        num = np.array([len(unit_type[unit_type==types[j]])/len(unit_type) for j in range(4)])
+        percs = np.array([len(unit_type[unit_type==types[j]])/len(unit_type) for j in range(len(types))])
 
-        a = 1
-        fc = 'None'
-        ec = colors[label]
-        axs.bar(i, num[0], bottom=0, 
-                facecolor=fc, edgecolor=ec, hatch='/////', label='Onset only',alpha=a)
-        axs.bar(i, num[1], bottom=num[0], 
-                facecolor=fc, edgecolor=ec, hatch='xxxxx', label='Onset & Offset',alpha=a)
-        axs.bar(i, num[2], bottom=num[0:2].sum(), 
-                facecolor=fc, edgecolor=ec, hatch='\\\\\\\\\\', label='Offset only',alpha=a)
-        axs.bar(i, num[3], bottom=num[0:3].sum(),
-                facecolor=fc, edgecolor=ec, hatch='', label='Neither',alpha=a)
+        for j in range(len(types)):
+            type = types[j]
+            color = response_colors[type]
+            if j == 0: bottom = 0
+            elif j == 1: bottom = percs[0]
+            else: bottom=percs[0:j].sum()
+            axs.bar(i, percs[j], bottom=bottom, 
+                    facecolor=color, edgecolor=color, alpha=1)
 
     axs.set_ylim([0,1])
     axs.set_ylabel('Percentage (%)',fontsize=32)
     axs.set_yticks([0,1],[0, 100], fontsize=28)
     axs.set_xticks([0,1,2,3],['WT\nNonHL', 'WT\nHL', '$\mathit{Df1}$/+\nNonHL', '$\mathit{Df1}$/+\nHL'], fontsize=28)
-    fig.suptitle('Unit Type Summary', fontsize = 36)
+    fig.suptitle('Response Type Summary', fontsize = 36)
     
     return fig
 
@@ -197,15 +202,16 @@ def Draw_Unit_Spike_Type_All_Group(Groups):
     types = [1, 2, 0]
     for i, (label, Group) in enumerate(Groups.items()):
         spike_type_label = Group.unit_id[:,2]
-        num = np.array([len(spike_type_label[spike_type_label==types[j]])/len(spike_type_label) for j in range(3)])
+        percs = np.array([len(spike_type_label[spike_type_label==types[j]])/len(spike_type_label) for j in range(len(types))])
 
-        a = 1
-        axs.bar(i, num[0], bottom=0, 
-                facecolor='pink', edgecolor='pink', label='Slow-Spike',alpha=a)
-        axs.bar(i, num[1], bottom=num[0], 
-                facecolor='lightblue', edgecolor='lightblue', hatch='xxxxx', label='Fast-Spike',alpha=a)
-        axs.bar(i, num[2], bottom=num[0:2].sum(), 
-                facecolor='grey', edgecolor='grey', label='NaN',alpha=a)
+        for j in range(len(types)):
+            type = types[j]
+            color = shape_colors[type]
+            if j == 0: bottom = 0
+            elif j == 1: bottom = percs[0]
+            else: bottom=percs[0:j].sum()
+            axs.bar(i, percs[j], bottom=bottom,
+                    facecolor=color, edgecolor=color, alpha=1)
 
     axs.set_ylim([0,1])
     axs.set_ylabel('Percentage (%)',fontsize=32)

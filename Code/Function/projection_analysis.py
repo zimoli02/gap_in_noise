@@ -1,23 +1,14 @@
 import os
 import numpy as np
-import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-import copy
-import pickle
 
-import scipy.stats as stats 
-from scipy.stats import sem
 from scipy.ndimage import gaussian_filter1d
-from scipy.optimize import curve_fit
-from scipy.linalg import svd, orth
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import r2_score
 from sklearn.kernel_ridge import KernelRidge
 
 from matplotlib.lines import Line2D
 import matplotlib.gridspec as gridspec
-from matplotlib.colors import Normalize
 import matplotlib.patches as patches
 pal = sns.color_palette('viridis_r', 11)
 
@@ -34,7 +25,18 @@ plt.rcParams['savefig.transparent'] = True
 
 projectionpath = '/Volumes/Research/GapInNoise/Data/Projection/'
 
-# Basic Functions
+################################################## Colors ##################################################
+response_colors = {'on': 'darkgoldenrod', 'off': 'olivedrab', 'both': 'darkcyan', 'none':'slategray'}
+shape_colors = {1: 'pink', 2: 'lightblue', 0:'grey'}
+gap_colors = pal
+group_colors =  {'WT_NonHL': 'chocolate', 'WT_HL':'orange', 'Df1_NonHL':'black', 'Df1_HL':'grey'}
+space_colors = {'on': 'green', 'off':'blue'}
+period_colors = {'Pre-N1': 'cornflowerblue', 'Noise1': 'darkgreen', 'Gap': 'darkblue', 'Noise2': 'forestgreen', 'Post-N2': 'royalblue'}
+space_colors_per_gap = {'on': sns.color_palette('BuGn', 11), 'off':sns.color_palette('GnBu', 11)}
+method_colors = {'Pairwise':'#0047AB', 'CCA':'#DC143C', 'RV':'#228B22', 'Trace':'#800080'}
+shade_color = 'gainsboro'
+
+################################################## Basic Functions ##################################################
 
 def check_path(path):
     if not os.path.exists(path):
@@ -83,14 +85,15 @@ def Low_Dim_Activity(Group):
                 lower_bound = i*2-1
                 upper_bound = i*2+1
                 axs[j].fill_between([0, 0.25], lower_bound, upper_bound, 
-                                    facecolor='gainsboro')
+                                    facecolor=shade_color)
                 axs[j].fill_between([0.25+Group.gaps[i], 0.35+Group.gaps[i]], lower_bound, upper_bound, 
-                                    facecolor='gainsboro')
+                                    facecolor=shade_color)
                 axs[j].plot(np.arange(-0.1, 0.9, 0.001), score_per_gap + i*2, 
-                            color=pal[i], linewidth = 5)
+                            color=gap_colors[i], linewidth = 5)
 
             axs[j].set_title('PC '+str(PC[j]+1), fontsize=48)
             axs[j].set_xticks([0, 0.5, 1.0], labels=[0, 500, 1000], fontsize=32)
+            axs[j].set_yticks([0, 2, 4, 6, 8, 10, 12, 14, 16, 18], labels=['' for g in range(10)], fontsize=32)
             axs[j].set_ylim((-1, 19))
             axs[j].set_xlabel('Time (ms)', fontsize=44)
         axs[0].set_yticks([0, 2, 4, 6, 8, 10, 12, 14, 16, 18], labels=['Gap#' + str(g+1) for g in range(10)], fontsize=32)
@@ -105,7 +108,6 @@ def Low_Dim_Activity(Group):
 def Low_Dim_Activity_Manifold(Group, short_gap = 5, long_gap = 9):
     def two_dim(gap_idx):
         gap_dur = round(Group.gaps[gap_idx]*1000+350)
-        linecolors = ['grey', 'green', 'black', 'blue', 'grey']
         linestyle = ['-', '--', '-', '--', ':']
         labels = ['Pre-N1', 'Noise1','Gap', 'Noise2', 'Post-N2']
         starts = [0, 100, 350, gap_dur, gap_dur + 100]
@@ -122,11 +124,12 @@ def Low_Dim_Activity_Manifold(Group, short_gap = 5, long_gap = 9):
         fig, axs = plt.subplots(1, 1, figsize=(8, 8))    
 
         for k in range(1,5):
+            line_color = period_colors[labels[k]]
             axs.plot(x[starts[k]:ends[k]], y[starts[k]:ends[k]], 
-                                            ls=linestyle[k], c=linecolors[k], linewidth = 1)
-            axs.plot([], [], ls=linestyle[k], c=linecolors[k], linewidth = 5, label = labels[k])
+                                            ls=linestyle[k], c=line_color, linewidth = 1)
+            axs.plot([], [], ls=linestyle[k], c=line_color, linewidth = 5, label = labels[k])
             axs.scatter(x[starts[k]:ends[k]], y[starts[k]:ends[k]], 
-                                            c=linecolors[k], s = 30)
+                                            c=line_color, s = 30)
 
         axs.scatter(x[350], y[350], label = 'Gap Start', color='red', s=200, alpha=1)
         axs.scatter(x[gap_dur], y[gap_dur], label = 'Gap End', color='magenta', s=200, alpha=1)
@@ -171,18 +174,18 @@ def Low_Dim_Activity_Manifold(Group, short_gap = 5, long_gap = 9):
         z = gaussian_filter1d(projection[PC[2]], sigma=sigma)
 
         gap_dur = round(Group.gaps[gap_idx]*1000+350)
-        linecolors = ['grey', 'green', 'black', 'blue', 'black']
         linestyle = ['-', '--', '-', '--', ':']
         labels = ['Pre-N1', 'Noise1','Gap', 'Noise2', 'Post-N2']
         starts = [0, 100, 350, gap_dur, gap_dur + 100]
         ends = [100, 350, gap_dur, gap_dur+100, 1000]
 
         for k in range(1,4):
+            line_color = period_colors[labels[k]]
             axs.plot(x[starts[k]:ends[k]], y[starts[k]:ends[k]], z[starts[k]:ends[k]], 
-                                            ls=linestyle[k], c=linecolors[k], linewidth = 1)
-            axs.plot([], [], ls=linestyle[k], c=linecolors[k], linewidth = 5, label = labels[k])
+                                            ls=linestyle[k], c=line_color, linewidth = 1)
+            axs.plot([], [], ls=linestyle[k], c=line_color, linewidth = 5, label = labels[k])
             axs.scatter(x[starts[k]:ends[k]], y[starts[k]:ends[k]], z[starts[k]:ends[k]], 
-                                            c=linecolors[k], s = 30)
+                                            c=line_color, s = 30)
         axs.scatter(x[350], y[350], z[350], label = 'Gap Start', color='red', s=200, alpha=1)
         axs.scatter(x[gap_dur], y[gap_dur], z[gap_dur], label = 'Gap End', color='magenta', s=200, alpha=1)
         style_3d_ax(axs)
@@ -211,7 +214,6 @@ def Low_Dim_Activity_Manifold(Group, short_gap = 5, long_gap = 9):
     
     return [fig_short_gap_2D, fig_long_gap_2D], [fig_short_gap_3D, fig_long_gap_3D]
     
-
 def Binary_Classifier(Group, subspace):
     def Get_Model(X, Y, kernel = False, kernel_type = '', alpha = 0):
         if not kernel:
@@ -295,11 +297,11 @@ def Binary_Classifier(Group, subspace):
             prob_on = s[:, 0]
             prob_off = s[:, 1]
             
-            axs[gap_idx].plot(prob_off, color = pal[gap_idx], linewidth = 7)
+            axs[gap_idx].plot(prob_off, color = gap_colors[gap_idx], linewidth = 7)
             
             ymin, ymax = 0, 1
             mask = Group.gaps_label[gap_idx] == 1
-            axs[gap_idx].fill_between(np.arange(len(Group.gaps_label[gap_idx])), ymin, ymax, where=mask, color = 'lightgrey')
+            axs[gap_idx].fill_between(np.arange(len(Group.gaps_label[gap_idx])), ymin, ymax, where=mask, color = shade_color)
 
             axs[gap_idx].set_xticks([], labels = [])
             axs[gap_idx].set_yticks([0,1], labels = [0, 1])

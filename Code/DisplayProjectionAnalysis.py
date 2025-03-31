@@ -45,7 +45,6 @@ def check_path(path):
     return path
 
 def SaveFig(fig, path):
-    check_path(path)
     for fig_format in ['eps', 'png']:
         fig.savefig(path+f'.{fig_format}', dpi = fig_dpi)
 
@@ -63,7 +62,7 @@ def Load_Groups(group_labels):
 
 def Display_Group(params, Group, label, file_path = '../Images/Subspace/'):
     if params.Dimensionality_Reduction:
-        sub_file_path = file_path + label + '/'
+        sub_file_path = check_path(file_path + label + '/')
         fig_variance, fig_projection = projection_analysis.Low_Dim_Activity(Group)
         SaveFig(fig_variance, sub_file_path + 'Variance')
         SaveFig(fig_projection, sub_file_path + 'Projection')
@@ -71,7 +70,7 @@ def Display_Group(params, Group, label, file_path = '../Images/Subspace/'):
         plt.close('all')
         
     if params.Low_Dim_Activity_in_Space:
-        sub_file_path = file_path + label + '/'
+        sub_file_path = check_path(file_path + label + '/')
         fig_2d, fig_3d = projection_analysis.Low_Dim_Activity_Manifold(Group, short_gap = 5, long_gap = 9)
         SaveFig(fig_2d[0], sub_file_path + '2D_Short_Gap')
         SaveFig(fig_2d[1], sub_file_path + '2D_Long_Gap')
@@ -81,7 +80,7 @@ def Display_Group(params, Group, label, file_path = '../Images/Subspace/'):
         plt.close('all')
         
     if params.Predict_Off_using_Low_Dim_Activity:
-        sub_file_path = file_path + label + '/'
+        sub_file_path = check_path(file_path + label + '/')
         fig_Efficient_Dim, fig_Model_Prediction = projection_analysis.Binary_Classifier(Group, subspace = Group.pca.loading)
         SaveFig(fig_Efficient_Dim, sub_file_path + 'Efficient_Dim')
         SaveFig(fig_Model_Prediction, sub_file_path + 'Model_Prediction')
