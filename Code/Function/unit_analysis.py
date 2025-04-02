@@ -100,8 +100,8 @@ def Determine_Type_All(Group):
     return np.array(unit_type)
 
 ################################################## Colors ##################################################
-response_colors = {'on': 'darkorange', 'off': 'olive', 'both': 'dodgerblue', 'none':'grey'}
-response_psth_colors = {'on': 'bisque', 'off': 'darkkhaki', 'both': 'lightskyblue', 'none':'lightgrey'}
+response_colors = {'on': 'darkorange', 'off': 'chartreuse', 'both': 'dodgerblue', 'none':'grey'}
+response_psth_colors = {'on': 'bisque', 'off': 'palegreen', 'both': 'lightskyblue', 'none':'lightgrey'}
 shape_colors = {1: 'pink', 2: 'lightblue', 0:'grey'}
 gap_colors = pal
 group_colors =  {'WT_NonHL': 'chocolate', 'WT_HL':'orange', 'Df1_NonHL':'black', 'Df1_HL':'grey'}
@@ -123,20 +123,27 @@ def Draw_Example_Unit():
         on_period = neuron_data[gap_idx, 50:150].reshape(20, -1).sum(axis=1)/5
         off_period = neuron_data[gap_idx, 400+gap_dur:510+gap_dur].reshape(22, -1).sum(axis=1)/5
 
-        axs[0].bar(np.arange(20), on_period, width=1.0, color = 'grey', alpha = 1)
-        axs[1].bar(np.arange(22), off_period, width=1.0, color = 'grey', alpha = 1)
+        axs[0].bar(np.arange(10), on_period[:10], width=1.0, color = 'lightgrey', alpha = 1)
+        axs[0].bar(np.arange(10,20), on_period[10:], width=1.0, color = response_colors[unit_type], alpha = 1)
+        
+        axs[1].bar(np.arange(10), off_period[:10], width=1.0, color ='lightgrey', alpha = 1)
+        axs[1].bar(np.arange(10, 22), off_period[10:], width=1.0, color = response_colors[unit_type], alpha = 1)
         
         on_background = neuron_data[gap_idx, 50:100].reshape(10, -1).sum(axis=1)/5
         mean, std = np.mean(on_background), np.std(on_background)
-        axs[0].plot([0, 20], [mean, mean], color = 'red', linestyle ='-', linewidth = 4)
-        axs[0].plot([0, 20], [mean+3*std, mean+3*std], color = 'red', linestyle =':', linewidth = 4)
-        axs[0].plot([0, 20], [mean-3*std, mean-3*std], color = 'red', linestyle =':', linewidth = 4)
+        axs[0].plot([0, 20], [mean, mean], color = 'lightgrey', linestyle ='--', linewidth = 4)
+        axs[0].fill_between([0, 20], [mean-3*std, mean-3*std], [mean+3*std, mean+3*std], 
+                    color='lightgrey', alpha = 0.3)
+        '''axs[0].plot([0, 20], [mean+3*std, mean+3*std], color = 'black', linestyle =':', linewidth = 4)
+        axs[0].plot([0, 20], [mean-3*std, mean-3*std], color = 'black', linestyle =':', linewidth = 4)'''
         
         off_background = neuron_data[gap_idx, 400+gap_dur:450+gap_dur].reshape(10, -1).sum(axis=1)/5
         mean, std = np.mean(off_background), np.std(off_background)
-        axs[1].plot([0, 22], [mean, mean], color = 'blue', linestyle ='-', linewidth = 4)
-        axs[1].plot([0, 22], [mean+3*std, mean+3*std], color = 'blue', linestyle =':', linewidth = 4)
-        axs[1].plot([0, 22], [mean-3*std, mean-3*std], color = 'blue', linestyle =':', linewidth = 4)
+        axs[1].plot([0, 22], [mean, mean], color = 'lightgrey', linestyle ='-', linewidth = 4)
+        axs[1].fill_between([0, 22], [mean-3*std, mean-3*std], [mean+3*std, mean+3*std], 
+                    color='lightgrey', alpha = 0.3)
+        '''axs[1].plot([0, 22], [mean+3*std, mean+3*std], color = 'black', linestyle =':', linewidth = 4)
+        axs[1].plot([0, 22], [mean-3*std, mean-3*std], color = 'black', linestyle =':', linewidth = 4)'''
         
         for i in range(2):
             axs[i].set_xticks([0, 10, 20], labels=[-50, 0, 50], fontsize = 28)

@@ -21,6 +21,9 @@ class UnitParams:
 @dataclass
 class ProjectionParams:
     Dimensionality_Reduction: bool = False
+    Low_Dim_Activity_by_Space: bool = False
+    Low_Dim_Activity_Divergence_by_Space: bool = False
+    Low_Dim_Activity_in_Different_Space: bool = False
     Low_Dim_Activity_in_Space: bool = False
     Predict_Off_using_Low_Dim_Activity: bool = False   
 
@@ -33,28 +36,27 @@ class SubspaceParams:
     Subspace_Capacity_Determination: bool = False
     Best_Subspace_Comparison: bool = False
     Subspace_Comparison_All_Group_Property: bool = False
+    Best_Subspace_Comparison_All_Group_Property: bool = False
 
 def main():
 
     projection_params = ProjectionParams(
-        Dimensionality_Reduction  = True,
-        Low_Dim_Activity_in_Space  = True,
-        Predict_Off_using_Low_Dim_Activity  = True
+        Low_Dim_Activity_in_Different_Space = True
+
     )
-    #DisplayProjectionAnalysis.main(projection_params, group_labels = ['WT_NonHL', 'WT_HL', 'Df1_NonHL', 'Df1_HL'])
+    DisplayProjectionAnalysis.main(projection_params, group_labels = ['WT_NonHL', 'WT_HL', 'Df1_NonHL', 'Df1_HL'])
 
     subspace_params = SubspaceParams(
-        Subspace_Comparison_All_Group_Property  = True
+        Subspace_Comparison_All_Group_Property  = True,
+        Best_Subspace_Comparison_All_Group_Property = True
     )
     #DisplaySubspaceAnalysis.main(subspace_params, group_labels = ['WT_NonHL', 'WT_HL', 'Df1_NonHL', 'Df1_HL'])
 
     unit_params = UnitParams(
         Example_Unit_Responsiveness = True,
-        All_Unit_Response_Type = True,
-        All_Unit_Spike_Type = True,
-        Responsiveness_Comparison = True
+        All_Unit_Response_Type = True
     )
-    DisplayUnitAnalysis.main(unit_params, group_labels = ['WT_NonHL', 'WT_HL', 'Df1_NonHL', 'Df1_HL'])
+    #DisplayUnitAnalysis.main(unit_params, group_labels = ['WT_NonHL', 'WT_HL', 'Df1_NonHL', 'Df1_HL'])
 
 if __name__ == "__main__":
     main()

@@ -41,11 +41,13 @@ response_psth_colors = {'on': 'bisque', 'off': 'darkkhaki', 'both': 'lightskyblu
 shape_colors = {1: 'pink', 2: 'lightblue', 0:'grey'}
 gap_colors = pal
 group_colors =  {'WT_NonHL': 'chocolate', 'WT_HL':'orange', 'Df1_NonHL':'black', 'Df1_HL':'grey'}
-space_colors = {'on': 'green', 'off':'blue'}
+space_colors = {'on': 'green', 'off':'blue', 'sustainednoise':'olive', 'sustainedsilence': 'grey'}
 period_colors = {'Noise1': 'darkgreen', 'Gap': 'darkblue', 'Noise2': 'forestgreen', 'Post-N2': 'royalblue'}
 space_colors_per_gap = {'on': sns.color_palette('BuGn', 11), 'off':sns.color_palette('GnBu', 11)}
 method_colors = {'Pairwise':'#0047AB', 'CCA':'#DC143C', 'RV':'#228B22', 'Trace':'#800080'}
 shade_color = 'gainsboro'
+
+
 ################################################## Basic Functions ##################################################
 
 def check_path(path):
@@ -510,6 +512,20 @@ def Subspace_Similarity_for_All_Gaps(Group, subspace_name, methods, standard_per
     
     return fig, fig_justification 
 
+def Determine_Best_Capacity(on_capacities, off_capacities, timewindows, separate_level):
+    maximum_level = np.max(separate_level)
+    threshold = maximum_level*0.5
+
+    parameters = []
+    for i in range(len(on_capacities)):
+        for j in range(len(off_capacities)):
+            for k in range(len(timewindows)):
+                if abs(separate_level[i,j,k] - threshold) < 1e-3: parameters.append([on_capacities[i], off_capacities[j], timewindows[k]])
+    centroid = np.mean(np.array(parameters), axis = 0)
+    best_on_capacity, best_off_capacity, best_timewindow = round(centroid[0]), round(centroid[1]), round(centroid[2])
+    return best_on_capacity, best_off_capacity, best_timewindow
+    
+
 def Period_Capacity_in_Subspace_Comparison(Group, method, max_on_capacity = 75, max_off_capacity = 100, max_timewindow = 100, offset_delay = 10):
     def Draw_Find_Period_Capacity_in_Subspace_Comparison(On_Similarities, Off_Similarities):
         gap_idx = 9
@@ -654,22 +670,10 @@ def Period_Capacity_in_Subspace_Comparison(Group, method, max_on_capacity = 75, 
         
         return on_capacities, off_capacities, timewindows, separate_level
     
-    def Determine_Best_Capacity(on_capacities, off_capacities, timewindows, separate_level):
-        maximum_level = np.max(separate_level)
-        threshold = maximum_level*0.5
-
-        parameters = []
-        for i in range(len(on_capacities)):
-            for j in range(len(off_capacities)):
-                for k in range(len(timewindows)):
-                    if abs(separate_level[i,j,k] - threshold) < 1e-3: parameters.append([on_capacities[i], off_capacities[j], timewindows[k]])
-        centroid = np.mean(np.array(parameters), axis = 0)
-        best_on_capacity, best_off_capacity, best_timewindow = round(centroid[0]), round(centroid[1]), round(centroid[2])
-        return best_on_capacity, best_off_capacity, best_timewindow
-    
     def Draw_Compare_Period_Capacity(on_capacities, off_capacities, timewindows, separate_level):
         
         best_on_capacity, best_off_capacity, best_timewindow = Determine_Best_Capacity(on_capacities, off_capacities, timewindows, separate_level)
+        
         for i in range(len(on_capacities)):
             if abs(on_capacities[i] - best_on_capacity) < 0.5: 
                 best_on_idx = i
@@ -1209,26 +1213,71 @@ def Subspace_Comparison_All_Group_Property_Multiple_Timewindows(Groups, method):
         axs1[1] = Draw_Violin_Plot(axs1[1], upper_boundaries_data)
         for i in range(2):
             axs1[i].set_yticks([0,1], labels = [0, 1])
-            axs1[i].set_xticks([0,1,2,3], ['WT_NonHL', 'WT_HL', 'Df1_NonHL', 'Df1_HL'], rotation = 45, ha = 'right')
+            axs1[i].set_xticks([0,1,2,3], ['WT\nNonHL', 'WT\nHL', '$\mathit{Df1}$/+\nNonHL', '$\mathit{Df1}$/+\nHL'])
             axs1[i].tick_params(axis='both', labelsize=28)
-            axs1[i].set_ylim(0, 1.2)
-            axs1[i].set_ylabel('Off-Similarity', fontsize = 28)
-            axs1[i].set_title(titles[i], fontsize = 34)
+            axs1[i].set_ylim(0, 1.05)
+            axs1[i].set_ylabel('Off-Similarity', fontsize = 34)
+            axs1[i].set_title(titles[i], fontsize = 44)
         
         fig2, axs2 = plt.subplots(1, 1, figsize=(10, 10)) 
         thresholds_data = [value for _, value in thresholds.items()]
         axs2 = Draw_Violin_Plot(axs2, thresholds_data)
         axs2.set_yticks([0, 8, 16, 24, 32, 40], labels = [0, 8, 16, 24, 32, 40])
-        axs2.set_xticks([0,1,2,3], ['WT_NonHL', 'WT_HL', 'Df1_NonHL', 'Df1_HL'], rotation = 45, ha = 'right')
+        axs2.set_xticks([0,1,2,3], ['WT\nNonHL', 'WT\nHL', '$\mathit{Df1}$/+\nNonHL', '$\mathit{Df1}$/+\nHL'])
         axs2.tick_params(axis='both', labelsize=28)
         axs2.set_ylim(0, 41)
-        axs2.set_ylabel('Gap Duration (ms)', fontsize = 28)
-        axs2.set_title('Threshold', fontsize = 34)
+        axs2.set_ylabel('Gap Duration (ms)', fontsize = 34)
+        axs2.set_title('Threshold', fontsize = 44)
         
         return fig1, fig2 
     
     fig_off_boundary, fig_off_threshold = Draw_Off_Similarity_Properties_with_Multiple_Timewindows()
     return fig_off_boundary, fig_off_threshold
+
+def Compare_Different_Parameters(Groups, method):
+    def Get_Parameters():
+        on_params, off_params, timewindow_params = [], [], []
+        for i, (label, Group) in enumerate(Groups.items()):
+            label = Group.geno_type + '_' + Group.hearing_type
+            
+            with np.load(subspacepath + f'PeriodCapacity/{method}/{label}.npz') as data:
+                on_capacities = data['on_capacities']
+                off_capacities = data['off_capacities']
+                timewindows = data['timewindows']
+                separate_level = data['separate_level']
+            print('Data Existed!')
+            
+            on_capacity, off_capacity, timewindow = Determine_Best_Capacity(on_capacities, off_capacities, timewindows, separate_level)
+            on_params.append(on_capacity)
+            off_params.append(off_capacity)
+            timewindow_params.append(timewindow)
+            
+        return on_params, off_params, timewindow_params
+    
+    def Draw_Parameters(on_capacities, off_capacities, timewindows):
+        fig, axs = plt.subplots(1, 1, figsize = (12, 10))
+        for i, (label, Group) in enumerate(Groups.items()):
+            axs.scatter(i, on_capacities[i], color = group_colors[label], s = 400, facecolors='none')
+            axs.scatter(i, off_capacities[i], color = group_colors[label], s = 400, facecolors='none')
+            axs.scatter(i, timewindows[i], color = group_colors[label], s = 400, facecolors='none')
+            
+        axs.plot(np.arange(len(Groups)), on_capacities, color = space_colors['on'], linewidth = 7, label = 'On-Space')
+        axs.plot(np.arange(len(Groups)), off_capacities, color = space_colors['off'], linewidth = 7, label = 'Off-Space')
+        axs.plot(np.arange(len(Groups)), timewindows, color = 'purple', linewidth = 7, label = 'Current-Timewindow')
+        
+        axs.legend(loc = 'upper right', fontsize = 32)
+        axs.set_yticks([0, 50, 100], labels = [0, 50, 100])
+        axs.set_xticks([0,1, 2, 3], ['WT\nNonHL', 'WT\nHL', '$\mathit{Df1}$/+\nNonHL', '$\mathit{Df1}$/+\nHL'])
+        axs.tick_params(axis='both', labelsize=36)
+        axs.set_ylim(0, 102)
+        axs.set_ylabel('Time (ms)', fontsize = 40)
+        axs.set_title('Optimized Parameters\nfor Subspace Comparison', fontsize = 44, fontweight = 'bold')
+        return fig
+    
+    on_capacities, off_capacities, timewindows = Get_Parameters()
+    fig_param = Draw_Parameters(on_capacities, off_capacities, timewindows)
+    
+    return fig_param
 
 def Compare_Off_Properties_with_Different_Parameters(Groups, method):
     def Draw_Off_Similarity_Properties():

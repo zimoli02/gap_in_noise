@@ -69,6 +69,24 @@ def Display_Group(params, Group, label, file_path = '../Images/Subspace/'):
         print('Dimensionality Reduction Completed!')
         plt.close('all')
         
+    if params.Low_Dim_Activity_by_Space:
+        sub_file_path = check_path(file_path + label + '/')
+        fig_hist = projection_analysis.Low_Dim_Activity_by_Space(Group, short_gap = 3, long_gap = 9)
+        SaveFig(fig_hist, sub_file_path + 'Histogram_by_Space')
+        
+    if params.Low_Dim_Activity_Divergence_by_Space:
+        sub_file_path = check_path(file_path + label + '/')
+        fig_KL = projection_analysis.Low_Dim_Activity_Divergence_by_Space(Group, short_gap = 3, long_gap = 9)
+        SaveFig(fig_KL, sub_file_path + 'KLDivergenceby_Space')
+        
+    if params.Low_Dim_Activity_in_Different_Space:
+        for space_name in ['On', 'Off']:
+            sub_file_path = check_path(file_path + label + f'/{space_name}/')
+            fig_projection, fig_KL = projection_analysis.Low_Dim_Activity_in_Different_Space(Group, short_gap = 3, long_gap = 9, 
+                                                                                            space_name = space_name, period_length = 100, offset_delay = 10)
+            SaveFig(fig_projection, sub_file_path + 'Projection_in_Different_Space')
+            SaveFig(fig_KL, sub_file_path + 'KLDivergence_in_Different_Space')
+
     if params.Low_Dim_Activity_in_Space:
         sub_file_path = check_path(file_path + label + '/')
         fig_2d, fig_3d = projection_analysis.Low_Dim_Activity_Manifold(Group, short_gap = 5, long_gap = 9)

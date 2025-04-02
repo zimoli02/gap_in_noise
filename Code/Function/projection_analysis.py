@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from scipy.ndimage import gaussian_filter1d
 from sklearn.linear_model import LogisticRegression
 from sklearn.kernel_ridge import KernelRidge
+from scipy.stats import entropy
 
 from matplotlib.lines import Line2D
 import matplotlib.gridspec as gridspec
@@ -25,17 +26,23 @@ plt.rcParams['savefig.transparent'] = True
 
 projectionpath = '/Volumes/Research/GapInNoise/Data/Projection/'
 
-################################################## Colors ##################################################
+################################################## Colors and Font ##################################################
 response_colors = {'on': 'darkorange', 'off': 'olive', 'both': 'dodgerblue', 'none':'grey'}
 response_psth_colors = {'on': 'bisque', 'off': 'darkkhaki', 'both': 'lightskyblue', 'none':'lightgrey'}
 shape_colors = {1: 'pink', 2: 'lightblue', 0:'grey'}
 gap_colors = pal
 group_colors =  {'WT_NonHL': 'chocolate', 'WT_HL':'orange', 'Df1_NonHL':'black', 'Df1_HL':'grey'}
-space_colors = {'on': 'green', 'off':'blue'}
+space_colors = {'on': 'green', 'off':'blue', 'sustainednoise':'olive', 'sustainedsilence': 'grey'}
 period_colors = {'Noise1': 'darkgreen', 'Gap': 'darkblue', 'Noise2': 'forestgreen', 'Post-N2': 'royalblue'}
 space_colors_per_gap = {'on': sns.color_palette('BuGn', 11), 'off':sns.color_palette('GnBu', 11)}
 method_colors = {'Pairwise':'#0047AB', 'CCA':'#DC143C', 'RV':'#228B22', 'Trace':'#800080'}
 shade_color = 'gainsboro'
+
+tick_size = 36
+legend_size = 24
+label_size = 40
+sub_title_size = 44
+title_size = 48
 
 ################################################## Basic Functions ##################################################
 
@@ -61,6 +68,43 @@ def Flip(PC, start = 100, end = 125):
     max_idx = np.argsort(abs(PC)[start:end])[::-1]
     if PC[start:end][max_idx[0]] < 0: return True 
     else: return False
+    
+################################################## Non-Specific Analysis ##################################################  
+
+def Get_Data_by_Space(data, gap_idx, gaps):
+    gap_dur = round(gaps[gap_idx]*1000)
+    data_on = data[350+gap_dur:450+gap_dur]
+    data_off = data[360:460]
+    data_noise = data[250:350]
+    data_silence = data[900:1000]
+    
+    return data_on, data_off, data_noise, data_silence
+
+def Get_Histogram_by_Space(data, bins, gap_idx, gaps):
+    data_on, data_off, data_noise, data_silence = Get_Data_by_Space(data, gap_idx, gaps)
+    
+    hist_on, _ = np.histogram(data_on, bins=bins, density=True)
+    hist_off, _ = np.histogram(data_off, bins=bins, density=True)
+    hist_noise, _ = np.histogram(data_noise, bins=bins, density=True)
+    hist_silence, _ = np.histogram(data_silence, bins=bins, density=True)
+    
+    return hist_on, hist_off, hist_noise, hist_silence
+
+def format_number(val):
+        if val < 1: return round(val,1)
+        else: return int(val)
+
+def Get_KL_Matrix_1D(data, bins, gap_idx, gaps):
+    hist_on, hist_off, hist_noise, hist_silence = Get_Histogram_by_Space(data, bins, gap_idx, gaps)
+    epsilon = 1e-15
+    hists = [hist_on, hist_off, hist_noise, hist_silence]
+    KL_matrix = np.zeros((4, 4))
+    for i in range(4):
+        for j in range(4):
+            KL_matrix[i, j] = entropy(hists[i] + epsilon, hists[j] + epsilon)
+    return KL_matrix
+
+################################################## Group-Specific Analysis ##################################################
 
 def Low_Dim_Activity(Group):
     def Draw_Variance():
@@ -68,10 +112,10 @@ def Low_Dim_Activity(Group):
         rank = min(100, len(Group.pca.variance))
         axs.plot(np.arange(rank), Group.pca.variance[:rank], color = 'black')
         
-        axs.set_xlabel('#Dimension', fontsize = 40)
-        axs.set_ylabel('Variance Explained', fontsize = 40)
-        axs.tick_params(axis = 'both', labelsize = 36)
-        axs.set_title('Variance Explained by Each PC', fontsize = 54, fontweight = 'bold')
+        axs.set_xlabel('#Dimension', fontsize = label_size)
+        axs.set_ylabel('Variance Explained', fontsize = label_size)
+        axs.tick_params(axis = 'both', labelsize = tick_size)
+        axs.set_title('Variance Explained by Each PC', fontsize = title_size, fontweight = 'bold')
         return fig 
     
     def Draw_Projection(PC):
@@ -92,13 +136,13 @@ def Low_Dim_Activity(Group):
                 axs[j].plot(np.arange(-0.1, 0.9, 0.001), score_per_gap + i*2, 
                             color=gap_colors[i], linewidth = 5)
 
-            axs[j].set_title('PC '+str(PC[j]+1), fontsize=48)
-            axs[j].set_xticks([0, 0.5, 1.0], labels=[0, 500, 1000], fontsize=32)
-            axs[j].set_yticks([0, 2, 4, 6, 8, 10, 12, 14, 16, 18], labels=['' for g in range(10)], fontsize=32)
+            axs[j].set_title('PC '+str(PC[j]+1), fontsize=sub_title_size)
+            axs[j].set_xticks([0, 0.5, 1.0], labels=[0, 500, 1000], fontsize=tick_size)
+            axs[j].set_yticks([0, 2, 4, 6, 8, 10, 12, 14, 16, 18], labels=['' for g in range(10)], fontsize=tick_size)
             axs[j].set_ylim((-1, 19))
-            axs[j].set_xlabel('Time (ms)', fontsize=44)
-        axs[0].set_yticks([0, 2, 4, 6, 8, 10, 12, 14, 16, 18], labels=['Gap#' + str(g+1) for g in range(10)], fontsize=32)
-        fig.suptitle('Projections to Each PC', fontweight = 'bold', fontsize = 54, y=0.97)
+            axs[j].set_xlabel('Time (ms)', fontsize=label_size)
+        axs[0].set_yticks([0, 2, 4, 6, 8, 10, 12, 14, 16, 18], labels=['Gap#' + str(g+1) for g in range(10)], fontsize=tick_size)
+        fig.suptitle('Projections to Each PC', fontweight = 'bold', fontsize = title_size)
         return fig
     
     fig_variance = Draw_Variance()
@@ -214,6 +258,172 @@ def Low_Dim_Activity_Manifold(Group, short_gap = 5, long_gap = 9):
     fig_long_gap_3D = three_dim(gap_idx = long_gap)
     
     return [fig_short_gap_2D, fig_long_gap_2D], [fig_short_gap_3D, fig_long_gap_3D]
+    
+def Low_Dim_Activity_by_Space(Group, short_gap = 3, long_gap = 9):
+    def Draw_Histogram_by_Space(axs, data, bins, width, gap_idx, gaps):
+        min_bin, max_bin = int(np.min(bins)), int(np.max(bins))
+        
+        hist_on, hist_off, hist_noise, hist_silence = Get_Histogram_by_Space(data, bins, gap_idx, gaps)
+        
+        axs.bar(np.arange(min_bin, max_bin, width), hist_on, color = space_colors['on'], width = width, alpha = 0.5, label = 'Onset')
+        axs.bar(np.arange(min_bin, max_bin, width), hist_off, color = space_colors['off'], width = width, alpha = 0.5, label = 'Offset')
+        axs.bar(np.arange(min_bin, max_bin, width), hist_noise, color = space_colors['sustainednoise'], width = width, alpha = 0.5, label = 'Sustained Noise')
+        axs.bar(np.arange(min_bin, max_bin, width), hist_silence, color = space_colors['sustainedsilence'], width = width, alpha = 0.5, label = 'Sustained Silence')
+        
+        return axs
+    
+    def Draw_Histogram():
+        fig, axs = plt.subplots(4, 2, figsize = (20, 20), sharex=False)
+
+        width = 10
+        for i in range(len(gap_indices)):
+            gap_idx = gap_indices[i]
+            for j in range(4):
+                R = Group.pca.score_per_gap[j][gap_idx]
+                min_bin, max_bin = round(np.min(R)-1), round(np.max(R) + 1)
+                bins = np.arange(min_bin, max_bin + width, width)
+                axs[j, i] = Draw_Histogram_by_Space(axs[j, i], R, bins, width, gap_idx, gaps)
+                axs[j, i].set_xticks([])
+                axs[j, i].set_yticks([])
+                axs[j, i].set_ylabel(f'PC{j+1}', fontsize = label_size)
+        gap_dur1, gap_dur2 = round(gaps[gap_indices[0]]*1000), round(gaps[gap_indices[1]]*1000)        
+        axs[0,0].set_title(f'Gap = {gap_dur1}ms', fontsize = sub_title_size)
+        axs[0,1].set_title(f'Gap = {gap_dur2}ms', fontsize = sub_title_size)
+        axs[0,0].legend(loc = 'upper left', fontsize = legend_size)
+        axs[0,1].legend(loc = 'upper left', fontsize = legend_size)
+        axs[3, 0].set_xlabel('Projection to PC', fontsize = label_size)
+        axs[3, 1].set_xlabel('Projection to PC', fontsize = label_size)
+        fig.suptitle('Response Distribution in Different Periods', fontsize = title_size, fontweight = 'bold')
+        return fig
+    
+    gaps = Group.gaps
+    gap_indices = [short_gap, long_gap]
+    fig = Draw_Histogram()
+    
+    return fig
+    
+def Low_Dim_Activity_Divergence_by_Space(Group, short_gap = 3, long_gap = 9):
+    def Draw_KL_Matrices():
+        fig, axs = plt.subplots(1, 4, figsize = (40, 10))
+
+        width = 10
+        tick_size = 32
+        for i in range(len(gap_indices)):
+            gap_idx = gap_indices[i]
+            
+            # PC1
+            R = Group.pca.score_per_gap[0][gap_idx]
+            min_bin, max_bin = round(np.min(R)-1), round(np.max(R) + 1)
+            bins = np.arange(min_bin, max_bin + width, width)
+            KL_matrix = Get_KL_Matrix_1D(R, bins, gap_idx, gaps)
+            formatted_annotations = [[format_number(val) for val in row] for row in KL_matrix]
+            sns.heatmap(KL_matrix, ax = axs[i*2], cmap = 'YlGnBu', square = True, cbar = False, vmin = 0, vmax = 30, 
+                        annot=formatted_annotations, annot_kws={'size': tick_size})
+            
+            # PC2
+            R = Group.pca.score_per_gap[1][gap_idx]
+            min_bin, max_bin = round(np.min(R)-1), round(np.max(R) + 1)
+            bins = np.arange(min_bin, max_bin + width, width)
+            KL_matrix = Get_KL_Matrix_1D(R, bins, gap_idx, gaps)
+            formatted_annotations = [[format_number(val) for val in row] for row in KL_matrix]
+            sns.heatmap(KL_matrix, ax = axs[i*2+1], cmap = 'YlGnBu', square = True, cbar = False, vmin = 0, vmax = 30,
+                        annot=formatted_annotations, annot_kws={'size': tick_size})
+
+        for i in range(4):
+            axs[i].set_xticks([0.5, 1.5, 2.5, 3.5], ['On', 'Off', 'S.Noi.', 'S.Sil.'], fontsize = tick_size)
+            axs[i].set_yticks([0.5, 1.5, 2.5, 3.5], ['On', 'Off', 'S.Noi.', 'S.Sil.'], fontsize = tick_size)
+        gap_dur1, gap_dur2 = round(gaps[gap_indices[0]]*1000), round(gaps[gap_indices[1]]*1000)        
+        axs[0].set_title(f'Gap = {gap_dur1}ms\nProjection to PC1', fontsize = sub_title_size)
+        axs[1].set_title(f'Gap = {gap_dur1}ms\nProjection to PC2', fontsize = sub_title_size)
+        axs[2].set_title(f'Gap = {gap_dur2}ms\nProjection to PC1', fontsize = sub_title_size)
+        axs[3].set_title(f'Gap = {gap_dur2}ms\nProjection to PC2', fontsize = sub_title_size)
+        fig.suptitle('K-L Divergence between Response Projection in Different Periods', fontsize = title_size, fontweight = 'bold', y=1.05)
+        return fig
+        
+    gaps = Group.gaps
+    gap_indices = [short_gap, long_gap]
+    fig_KL = Draw_KL_Matrices()
+    return fig_KL
+    
+    
+def Low_Dim_Activity_in_Different_Space(Group, short_gap = 3, long_gap = 9, space_name = 'On', period_length = 100, offset_delay = 10):
+    def Draw_Projection():
+        fig, axs = plt.subplots(ncols=len(PC), sharex=True, figsize=(20, 20))
+        for j in range(len(PC)):
+            for i in range(10):
+                score_per_gap = (space_data_loading @ Group.pop_response_stand[:, i, :])[PC[j]]
+                score_per_gap = (score_per_gap-np.mean(score_per_gap[:100]))/np.max(abs(score_per_gap))
+                if Flip(score_per_gap): score_per_gap = score_per_gap * (-1)
+
+                lower_bound = i*2-1
+                upper_bound = i*2+1
+                axs[j].fill_between([0, 0.25], lower_bound, upper_bound, 
+                                    facecolor=shade_color)
+                axs[j].fill_between([0.25+Group.gaps[i], 0.35+Group.gaps[i]], lower_bound, upper_bound, 
+                                    facecolor=shade_color)
+                axs[j].plot(np.arange(-0.1, 0.9, 0.001), score_per_gap + i*2, 
+                            color=gap_colors[i], linewidth = 5)
+
+            axs[j].set_title('PC '+str(PC[j]+1), fontsize=sub_title_size)
+            axs[j].set_xticks([0, 0.5, 1.0], labels=[0, 500, 1000], fontsize=tick_size)
+            axs[j].set_yticks([0, 2, 4, 6, 8, 10, 12, 14, 16, 18], labels=['' for g in range(10)], fontsize=tick_size)
+            axs[j].set_ylim((-1, 19))
+            axs[j].set_xlabel('Time (ms)', fontsize=label_size)
+        axs[0].set_yticks([0, 2, 4, 6, 8, 10, 12, 14, 16, 18], labels=['Gap#' + str(g+1) for g in range(10)], fontsize=tick_size)
+        fig.suptitle(f'Projections to {space_name}set-Space PC', fontweight = 'bold', fontsize = title_size)
+        return fig
+    
+    def Draw_Divergence():
+        fig, axs = plt.subplots(2, 2, figsize = (20, 20))
+        axs = axs.flatten()
+        for i in range(len(gap_indices)):
+            gap_idx = gap_indices[i]
+            
+            # PC1
+            R = (space_data_loading @ Group.pop_response_stand[:, gap_idx, :])[0]
+            min_bin, max_bin = round(np.min(R)-1), round(np.max(R) + 1)
+            bins = np.arange(min_bin, max_bin + width, width)
+            KL_matrix = Get_KL_Matrix_1D(R, bins, gap_idx, gaps)
+            formatted_annotations = [[format_number(val) for val in row] for row in KL_matrix]
+            sns.heatmap(KL_matrix, ax = axs[i*2], cmap = 'YlGnBu', square = True, cbar = False, vmin = 0, vmax = 30, 
+                        annot=formatted_annotations, annot_kws={'size': tick_size})
+            
+            # PC2
+            R = (space_data_loading @ Group.pop_response_stand[:, gap_idx, :])[1]
+            min_bin, max_bin = round(np.min(R)-1), round(np.max(R) + 1)
+            bins = np.arange(min_bin, max_bin + width, width)
+            KL_matrix = Get_KL_Matrix_1D(R, bins, gap_idx, gaps)
+            formatted_annotations = [[format_number(val) for val in row] for row in KL_matrix]
+            sns.heatmap(KL_matrix, ax = axs[i*2+1], cmap = 'YlGnBu', square = True, cbar = False, vmin = 0, vmax = 30,
+                        annot=formatted_annotations, annot_kws={'size': tick_size})
+
+        for i in range(4):
+            axs[i].set_xticks([0.5, 1.5, 2.5, 3.5], ['On', 'Off', 'S.Noi.', 'S.Sil.'], fontsize = tick_size)
+            axs[i].set_yticks([0.5, 1.5, 2.5, 3.5], ['On', 'Off', 'S.Noi.', 'S.Sil.'], fontsize = tick_size)
+        gap_dur1, gap_dur2 = round(gaps[gap_indices[0]]*1000), round(gaps[gap_indices[1]]*1000)        
+        axs[0].set_title(f'Gap = {gap_dur1}ms, Project to PC1', fontsize = sub_title_size)
+        axs[1].set_title(f'Gap = {gap_dur1}ms, Project to PC2', fontsize = sub_title_size)
+        axs[2].set_title(f'Gap = {gap_dur2}ms, Project to PC1', fontsize = sub_title_size)
+        axs[3].set_title(f'Gap = {gap_dur2}ms, Project to PC2', fontsize = sub_title_size)
+        fig.suptitle('K-L Divergence between Response Projection\nin Different Periods', fontsize = title_size, fontweight = 'bold', y=1)
+        return fig
+
+    if space_name == 'On':
+        space_data = Group.pop_response_stand[:, 0, 100:100 + period_length]
+    else:
+        space_data = Group.pop_response_stand[:, 0, 450 + offset_delay:450 + offset_delay + period_length]
+    space_data_pca = analysis.PCA(space_data, multiple_gaps=False)
+    space_data_loading = space_data_pca.loading
+    
+    PC = [0,1,2,3]
+    gaps = Group.gaps
+    gap_indices = [short_gap, long_gap]
+    width = 10
+    
+    fig_projection = Draw_Projection()
+    fig_KL = Draw_Divergence()
+    
+    return fig_projection, fig_KL
     
 def Binary_Classifier(Group, subspace):
     def Get_Model(X, Y, kernel = False, kernel_type = '', alpha = 0):
