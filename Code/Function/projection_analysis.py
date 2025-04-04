@@ -123,6 +123,137 @@ def Get_JS_Matrix_1D(data, bins, gap_idx, gaps, base=2):
     
     return JS_matrix
 
+def Draw_Analysis_Explanation(Group, gap_idx = 9):
+    def Simulate_ft():
+        pre_N1 = np.random.normal(loc=1, scale=1.5, size=100)
+        N1_Onset = np.random.normal(loc=10, scale=1, size=100)
+        N1_Sustained = np.random.normal(loc=3, scale=1.5, size=150)
+        N1_Offset = np.random.normal(loc=6, scale=1, size=100)
+        Gap_Sustained = np.random.normal(loc=1, scale=1.5, size=156)
+        N2_Onset = np.random.normal(loc=10, scale=1, size=100)
+        N2_Offset = np.random.normal(loc=6, scale=1, size=100)
+        post_N2 = np.random.normal(loc=1, scale=1.5, size=194)
+    
+        ft = np.concatenate((pre_N1, N1_Onset, N1_Sustained, N1_Offset, Gap_Sustained, N2_Onset, N2_Offset, post_N2))
+        return ft
+    
+    def Draw_ft_Computation():
+        sound_cond = Group.gaps_label[gap_idx]
+        sort_idx = np.argsort(Group.pca.loading[0])[::-1]
+
+        Group_firingrate = Group.pop_response_stand[:, gap_idx, :]
+        sort_idx = np.argsort(Group.pca.loading[0])[::-1]
+
+        fig, axs = plt.subplots(3, 1, figsize=(40, 20), gridspec_kw={'height_ratios': [30, 1, 20]})
+        sns.heatmap(Group_firingrate[sort_idx], ax=axs[0], 
+                    vmin = 0, vmax = 100, cmap='binary', cbar=False)
+        sns.heatmap([sound_cond+0.15], ax=axs[1], 
+                    vmin=0, vmax=1, cmap='Blues', cbar=False)
+
+        for i in range(2):
+            axs[i].set_aspect('auto')
+            axs[i].set_xticks([])
+            axs[i].set_xticklabels([], rotation=0)
+            axs[i].set_ylabel('')
+            axs[i].set_yticks([])
+        axs[0].set_ylabel('# Unit', fontsize = label_size)
+
+        ft = Simulate_ft()
+        axs[2].plot(ft, color = 'black', linewidth = 7)
+        axs[2].set_xlim((0,1000))
+        axs[2].set_xticks([0, 500, 1000], ['0', '500', '1000'], fontsize = tick_size)
+        axs[2].set_yticks([])
+        axs[2].set_xlabel('Time (ms)', fontsize = label_size)
+        axs[2].set_ylabel('$f(t)$', fontsize = label_size)
+
+        # Draw a rectangle on the heatmap
+        matrix_height = len(Group_firingrate[sort_idx])
+        rect = patches.Rectangle((320, 0), 130, matrix_height, linewidth=7, edgecolor='r', facecolor='none', linestyle = '--')
+        axs[0].add_patch(rect)
+
+        # Draw an arrow
+        arrow_start_x, arrow_end_x = 450, 450
+        arrow_start_y = matrix_height / 2  # Middle of the heatmap
+        arrow_end_y = ft[450]  # The y-value of f(t) at time=450
+
+        ## Convert the data coordinates to figure coordinates for both points
+        trans_heatmap = axs[0].transData
+        trans_ft = axs[2].transData
+        trans_fig = fig.transFigure.inverted()
+
+        ## Convert start/end point from heatmap to figure coordinates
+        start_in_fig = trans_fig.transform(trans_heatmap.transform((arrow_start_x, arrow_start_y)))
+        end_in_fig = trans_fig.transform(trans_ft.transform((arrow_end_x, arrow_end_y)))
+
+        ## Add an arrow annotation
+        arrow = patches.FancyArrowPatch(
+            start_in_fig, end_in_fig,
+            transform=fig.transFigure,
+            connectionstyle="arc3,rad=-0.2",
+            arrowstyle="fancy,head_width=15,head_length=40",
+            color='r',
+            linewidth=7
+        )
+        fig.patches.append(arrow)
+
+        axs[2].scatter(450, ft[450], color='magenta', s = 600)
+
+        fig.suptitle(f'Computation of $f(t)$', fontsize = title_size, fontweight = 'bold', y=0.95) 
+        return fig
+        
+    def Draw_ft_Histogram():
+        def Draw_Histogram_by_Space(axs, data, bins, width, gap_idx, gaps):
+            min_bin, max_bin = int(np.min(bins)), int(np.max(bins))
+            
+            hist_on, hist_off, hist_noise, hist_silence = Get_Histogram_by_Space(data, bins, gap_idx, gaps)
+            
+            axs.bar(np.arange(min_bin, max_bin, width), hist_on, color = space_colors['on'], width = width, alpha = 0.5, label = 'Onset')
+            axs.bar(np.arange(min_bin, max_bin, width), hist_off, color = space_colors['off'], width = width, alpha = 0.5, label = 'Offset')
+            axs.bar(np.arange(min_bin, max_bin, width), hist_noise, color = space_colors['sustainednoise'], width = width, alpha = 0.5, label = 'Sustained Noise')
+            axs.bar(np.arange(min_bin, max_bin, width), hist_silence, color = space_colors['sustainedsilence'], width = width, alpha = 0.5, label = 'Sustained Silence')
+            
+            return axs
+
+        fig, axs = plt.subplots(1, 1, figsize = (30, 10))
+        R = Simulate_ft()
+        min_bin, max_bin = round(np.min(R)-1), round(np.max(R) + 1)
+
+        width = 0.5
+        bins = np.arange(min_bin, max_bin + width, width)
+        axs = Draw_Histogram_by_Space(axs, R, bins, width, gap_idx, gaps)
+        axs.legend(loc = 'upper left', fontsize = legend_size)
+        axs.set_xticks([])
+        axs.set_yticks([])
+        axs.set_xlabel('$f(t)$', fontsize = label_size)
+        axs.set_ylabel('Density', fontsize = label_size)
+        fig.suptitle('$f(t)$ Distribution in Different Periods', fontsize = title_size, fontweight = 'bold')
+        
+        return fig
+        
+    def Draw_JS_Divergence():
+        fig, axs = plt.subplots(1, 1, figsize = (10, 10))
+        R = Simulate_ft()
+        min_bin, max_bin = round(np.min(R)-1), round(np.max(R) + 1)
+
+        width = 0.5
+        bins = np.arange(min_bin, max_bin + width, width)
+        JS_matrix = Get_JS_Matrix_1D(R, bins, gap_idx, gaps)
+        formatted_annotations = [[format_number(val) for val in row] for row in JS_matrix]
+        sns.heatmap(JS_matrix, ax = axs, cmap = 'YlGnBu', square = True, cbar = False, vmin = 0, vmax = 1, 
+                    annot=formatted_annotations, annot_kws={'size': tick_size})
+        axs.set_xticks([0.5, 1.5, 2.5, 3.5], ['On', 'Off', 'S.Noi.', 'S.Sil.'], fontsize = tick_size)
+        axs.set_yticks([0.5, 1.5, 2.5, 3.5], ['On', 'Off', 'S.Noi.', 'S.Sil.'], fontsize = tick_size)
+        fig.suptitle('J-S Divergence between $f(t)$', fontsize = title_size, fontweight = 'bold', y=0.95)
+        return fig
+        
+    gaps = Group.gaps
+        
+    fig_computation = Draw_ft_Computation()
+    fig_histogram = Draw_ft_Histogram()
+    fig_JS_divergence = Draw_JS_Divergence()
+    
+    return fig_computation, fig_histogram, fig_JS_divergence
+
 ################################################## Group-Specific Analysis ##################################################
 
 def Low_Dim_Activity(Group):

@@ -66,18 +66,22 @@ def Display_Group(params, Group, label, file_path = '../Images/Subspace/'):
         fig_variance, fig_projection = projection_analysis.Low_Dim_Activity(Group)
         SaveFig(fig_variance, sub_file_path + 'Variance')
         SaveFig(fig_projection, sub_file_path + 'Projection')
-        print('Dimensionality Reduction Completed!')
+        print('Dimensionality_Reduction Completed!')
         plt.close('all')
         
     if params.Low_Dim_Activity_by_Space:
         sub_file_path = check_path(file_path + label + '/')
         fig_hist = projection_analysis.Low_Dim_Activity_by_Space(Group, short_gap = 3, long_gap = 9)
         SaveFig(fig_hist, sub_file_path + 'Histogram_by_Space')
+        print('Low_Dim_Activity_by_Space Completed!')
+        plt.close('all')
         
     if params.Low_Dim_Activity_Divergence_by_Space:
         sub_file_path = check_path(file_path + label + '/')
         fig_KL = projection_analysis.Low_Dim_Activity_Divergence_by_Space(Group, short_gap = 3, long_gap = 9)
         SaveFig(fig_KL, sub_file_path + 'KLDivergenceby_Space')
+        print('Low_Dim_Activity_Divergence_by_Space Completed!')
+        plt.close('all')
         
     if params.Low_Dim_Activity_in_Different_Space:
         for space_name in ['On', 'Off']:
@@ -86,6 +90,8 @@ def Display_Group(params, Group, label, file_path = '../Images/Subspace/'):
                                                                                             space_name = space_name, period_length = 100, offset_delay = 10)
             SaveFig(fig_projection, sub_file_path + 'Projection_in_Different_Space')
             SaveFig(fig_KL, sub_file_path + 'KLDivergence_in_Different_Space')
+        print('Low_Dim_Activity_in_Different_Space Completed!')
+        plt.close('all')
 
     if params.Low_Dim_Activity_in_Space:
         sub_file_path = check_path(file_path + label + '/')
@@ -112,6 +118,18 @@ def main(subspace_params, group_labels):
         print(f'Start Analysing {label}')
         Display_Group(subspace_params, Groups[label], label, file_path = imagepath)
         print('\n')
-    
+        
+    if subspace_params.Analysis_Explanation:
+        with open(grouppath  + 'WT_NonHL' + '.pickle', 'rb') as file:
+            Group = pickle.load(file)
+        fig_computation, fig_histogram, fig_JS_divergence = projection_analysis.Draw_Analysis_Explanation(Group)
+        sub_file_path = check_path(imagepath)
+        SaveFig(fig_computation, sub_file_path + 'ft_Computation')
+        SaveFig(fig_histogram, sub_file_path + 'ft_Histogram')
+        SaveFig(fig_JS_divergence, sub_file_path + 'ft_Divergence')
+        
+        print('Analysis_Explanation Completed')
+        plt.close('all')
+            
 if __name__ == "__main__":
     main()

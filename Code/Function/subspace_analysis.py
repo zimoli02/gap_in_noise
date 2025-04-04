@@ -507,41 +507,37 @@ def Subspace_Similarity_for_All_Gaps(Group, subspace_name, methods, standard_per
             axs.set_yticks([0.5, 1.5, 2.5, 3.5], ['On', 'Off', 'S.Noi.', 'S.Sil.'], fontsize = tick_size)
             return axs
         
-        subspacenames = ['On', 'Off', 'SustainedNoise', 'SustainedSilence']
-        for i in range(len(subspacenames)):
-            subspacename = subspacenames[i]
-            if subspacename != subspace_name: continue
-            file_path = subspacepath + f'SubspaceEvolution/{subspacename}/'
-            with open(file_path + f'{label}.pkl', 'rb') as f:
-                data = pickle.load(f)
-            print('Data Existed!')
+        file_path = subspacepath + f'SubspaceEvolution/{subspace_name}/'
+        with open(file_path + f'{label}.pkl', 'rb') as f:
+            data = pickle.load(f)
+        print('Data Existed!')
+            
+        fig, axs = plt.subplots(2, 2, figsize = (20, 20))
+        axs = axs.flatten()
+        for j in range(len(methods)):
+            method = methods[j]
+            
+            On_sim, Off_sim, SustainedNoise_sim, SustainedSilence_sim = np.array([]), np.array([]), np.array([]), np.array([])
+            for gap_idx in range(10):
+                gap_dur = round(Group.gaps[gap_idx]*1000)
+                Similarity = np.array(data[gap_idx][method])  
                 
-            fig, axs = plt.subplots(2, 2, figsize = (20, 20))
-            axs = axs.flatten()
-            for j in range(len(methods)):
-                method = methods[j]
+            
+                On_sim = np.concatenate((On_sim, Similarity[0:100]))
+                Off_sim = np.concatenate((Off_sim, Similarity[360 + gap_dur:460 + gap_dur]))
+                SustainedNoise_sim = np.concatenate((SustainedNoise_sim, Similarity[150:250]))
+                SustainedSilence_sim = np.concatenate((SustainedSilence_sim, Similarity[- 100:]))
                 
-                On_sim, Off_sim, SustainedNoise_sim, SustainedSilence_sim = np.array([]), np.array([]), np.array([]), np.array([])
-                for gap_idx in range(10):
-                    gap_dur = round(Group.gaps[gap_idx]*1000)
-                    Similarity = np.array(data[gap_idx][method])  
-                    
-                
-                    On_sim = np.concatenate((On_sim, Similarity[0:100]))
-                    Off_sim = np.concatenate((Off_sim, Similarity[360 + gap_dur:460 + gap_dur]))
-                    SustainedNoise_sim = np.concatenate((SustainedNoise_sim, Similarity[150:250]))
-                    SustainedSilence_sim = np.concatenate((SustainedSilence_sim, Similarity[- 100:]))
-                    
-                min_bin, max_bin = 0, 1
-                width = 0.01
-                bins = np.arange(min_bin, max_bin + width, width)
-                JS_Matrix = Get_JS_Matrix_1D_Across_Gap([On_sim, Off_sim, SustainedNoise_sim, SustainedSilence_sim], bins)
-                
-                axs[j] = Draw_JS_Divergence_Matrix(axs[j], JS_Matrix)
-                axs[j].set_title(Comparison_Method_Full_Title(method), fontsize = 34)
+            min_bin, max_bin = 0, 1
+            width = 0.01
+            bins = np.arange(min_bin, max_bin + width, width)
+            JS_Matrix = Get_JS_Matrix_1D_Across_Gap([On_sim, Off_sim, SustainedNoise_sim, SustainedSilence_sim], bins)
+            
+            axs[j] = Draw_JS_Divergence_Matrix(axs[j], JS_Matrix)
+            axs[j].set_title(Comparison_Method_Full_Title(method), fontsize = 34)
 
-            fig.suptitle(f'J-S Divergence between {subspacename}-Space\nCovariance Alignment', fontsize = 54, fontweight = 'bold', y=1) 
-            return fig
+        fig.suptitle(f'J-S Divergence\n{subspace_name}-Space', fontsize = 54, fontweight = 'bold', y=1) 
+        return fig
     
     label = Group.geno_type + '_' + Group.hearing_type
     standard_period = Get_Standard_Period()
