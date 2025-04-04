@@ -7,6 +7,7 @@ import pickle
 
 import scipy.stats as stats 
 from scipy.stats import sem
+from scipy.stats import entropy
 from scipy.ndimage import gaussian_filter1d
 from scipy.optimize import curve_fit, OptimizeWarning
 from scipy.linalg import svd, orth
@@ -224,6 +225,9 @@ def sigmoid(x, L, x0, k, c):
 def inverse_sigmoid(y, L, x0, k, c):
     return x0 - (1 / k) * np.log((L / (y-c)) - 1)
 
+def format_number(val):
+    if val < 1: return round(val,1)
+    else: return int(val)
 
 ################################################## Non-Specific Plotting ##################################################
 
@@ -466,28 +470,41 @@ def Subspace_Similarity_for_All_Gaps(Group, subspace_name, methods, standard_per
         return fig
     
     def Justify_the_Separation_Level_for_each_Space_each_Method():
-        def Draw_Violin_Plot(axs, violin_data):
-            labels = ['on', 'off', 'sustainednoise', 'sustainedsilence']
+        def Get_Histogram_by_Space__Across_Gap(data, bins):
+            data_on, data_off, data_noise, data_silence = data[0], data[1], data[2], data[3]
             
-            # Create violin plot
-            parts = axs.violinplot(violin_data, positions=range(len(labels)),
-                                    showmeans=True, showextrema=True, showmedians=False)
-                    
-            for j, pc in enumerate(parts['bodies']):
-                label = labels[j]
-                pc.set_facecolor(space_colors[label])
-                pc.set_alpha(0.7)
+            hist_on, _ = np.histogram(data_on, bins=bins, density=True)
+            hist_off, _ = np.histogram(data_off, bins=bins, density=True)
+            hist_noise, _ = np.histogram(data_noise, bins=bins, density=True)
+            hist_silence, _ = np.histogram(data_silence, bins=bins, density=True)
             
-            # Customize other violin plot elements
-            #parts['cmedians'].set_color('black')  # Median marker color
-            parts['cbars'].set_color('black')   # Center bar color
-            parts['cmaxes'].set_color('black')  # Max marker color
-            parts['cmins'].set_color('black')   # Min marker color
-
-            axs.axhline(y=0, color = 'grey', linestyle = '--')
-            axs.spines['top'].set_visible(False)
-            axs.spines['right'].set_visible(False)
+            return hist_on, hist_off, hist_noise, hist_silence
+        
+        def Get_JS_Matrix_1D_Across_Gap(data, bins, base = 2):
+            hist_on, hist_off, hist_noise, hist_silence = Get_Histogram_by_Space__Across_Gap(data, bins)
+            epsilon = 1e-15
             
+            hists = [hist_on, hist_noise, hist_off, hist_silence]
+            JS_matrix = np.zeros((4, 4))
+            
+            for i in range(4):
+                for j in range(4):
+                    P = hists[i] + epsilon
+                    Q = hists[j] + epsilon
+                    P /= np.sum(P)
+                    Q /= np.sum(Q)
+                    M = 0.5 * (P + Q)
+                    JS = 0.5 * entropy(P, M, base=base) + 0.5 * entropy(Q, M, base=base)
+                    JS_matrix[i, j] = JS
+            
+            return JS_matrix
+            
+        def Draw_JS_Divergence_Matrix(axs, JS_matrix):
+            formatted_annotations = [[format_number(val) for val in row] for row in JS_Matrix]
+            sns.heatmap(JS_Matrix, ax = axs, cmap = 'YlGnBu', square = True, cbar = False, vmin = 0, vmax = 1, 
+                        annot=formatted_annotations, annot_kws={'size': tick_size})
+            axs.set_xticks([0.5, 1.5, 2.5, 3.5], ['On', 'Off', 'S.Noi.', 'S.Sil.'], fontsize = tick_size)
+            axs.set_yticks([0.5, 1.5, 2.5, 3.5], ['On', 'Off', 'S.Noi.', 'S.Sil.'], fontsize = tick_size)
             return axs
         
         subspacenames = ['On', 'Off', 'SustainedNoise', 'SustainedSilence']
@@ -508,37 +525,23 @@ def Subspace_Similarity_for_All_Gaps(Group, subspace_name, methods, standard_per
                 for gap_idx in range(10):
                     gap_dur = round(Group.gaps[gap_idx]*1000)
                     Similarity = np.array(data[gap_idx][method])  
+                    
                 
                     On_sim = np.concatenate((On_sim, Similarity[0:100]))
                     Off_sim = np.concatenate((Off_sim, Similarity[360 + gap_dur:460 + gap_dur]))
                     SustainedNoise_sim = np.concatenate((SustainedNoise_sim, Similarity[150:250]))
                     SustainedSilence_sim = np.concatenate((SustainedSilence_sim, Similarity[- 100:]))
-
-                axs[j] = Draw_Violin_Plot(axs[j], [On_sim, Off_sim, SustainedNoise_sim, SustainedSilence_sim])
+                    
+                min_bin, max_bin = 0, 1
+                width = 0.01
+                bins = np.arange(min_bin, max_bin + width, width)
+                JS_Matrix = Get_JS_Matrix_1D_Across_Gap([On_sim, Off_sim, SustainedNoise_sim, SustainedSilence_sim], bins)
                 
-                '''
-                Similarities = np.array([On_sim, Off_sim, SustainedNoise_sim, SustainedSilence_sim])
-                Means = np.array([np.mean(sim) for sim in Similarities])
-                Stds = np.array([np.std(sim) for sim in Similarities])
-                
-                p_values = [stats.ttest_ind(Similarities[i], Similarities[k])[1] for k in range(4)] 
-                
-                axs[j].bar([0,1,2,3], Means, yerr=np.array(Stds)*3, color=method_colors[method], alpha=0.6, capsize=10, width=0.8, error_kw={'capthick': 3, 'elinewidth': 2.5})
-                
-                max_y = max(Means) + max(Stds)*3 + 0.05
-                for k in range(4):
-                    if k == i: continue
-                    add_significance_bar(axs[j], i, k, max_y + 0.1*(k-1), p_values[k])
-                '''
-                
-                axs[j].set_yticks([0, 1], labels = [0, 1])
-                axs[j].set_xticks([0,1,2,3], ['On', 'Off', 'S.N.','S.L.'], ha = 'center')
-                axs[j].tick_params(axis='both', labelsize=32)
-                axs[j].set_ylim(-0.03, 1.03)
+                axs[j] = Draw_JS_Divergence_Matrix(axs[j], JS_Matrix)
                 axs[j].set_title(Comparison_Method_Full_Title(method), fontsize = 34)
 
-            fig.suptitle(f'Similarity with {subspacename}-Space\nduring Different Periods', fontsize = 54, fontweight = 'bold') 
-        return fig
+            fig.suptitle(f'J-S Divergence between {subspacename}-Space\nCovariance Alignment', fontsize = 54, fontweight = 'bold', y=1) 
+            return fig
     
     label = Group.geno_type + '_' + Group.hearing_type
     standard_period = Get_Standard_Period()

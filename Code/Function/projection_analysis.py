@@ -104,6 +104,25 @@ def Get_KL_Matrix_1D(data, bins, gap_idx, gaps):
             KL_matrix[i, j] = entropy(hists[i] + epsilon, hists[j] + epsilon)
     return KL_matrix
 
+def Get_JS_Matrix_1D(data, bins, gap_idx, gaps, base=2):
+    hist_on, hist_off, hist_noise, hist_silence = Get_Histogram_by_Space(data, bins, gap_idx, gaps)
+    epsilon = 1e-15  # To avoid log(0)
+    
+    hists = [hist_on, hist_noise, hist_off, hist_silence]
+    JS_matrix = np.zeros((4, 4))
+    
+    for i in range(4):
+        for j in range(4):
+            P = hists[i] + epsilon
+            Q = hists[j] + epsilon
+            P /= np.sum(P)
+            Q /= np.sum(Q)
+            M = 0.5 * (P + Q)
+            JS = 0.5 * entropy(P, M, base=base) + 0.5 * entropy(Q, M, base=base)
+            JS_matrix[i, j] = JS
+    
+    return JS_matrix
+
 ################################################## Group-Specific Analysis ##################################################
 
 def Low_Dim_Activity(Group):
@@ -303,7 +322,7 @@ def Low_Dim_Activity_by_Space(Group, short_gap = 3, long_gap = 9):
     return fig
     
 def Low_Dim_Activity_Divergence_by_Space(Group, short_gap = 3, long_gap = 9):
-    def Draw_KL_Matrices():
+    def Draw_JS_Matrices():
         fig, axs = plt.subplots(1, 4, figsize = (40, 10))
 
         width = 10
@@ -313,20 +332,22 @@ def Low_Dim_Activity_Divergence_by_Space(Group, short_gap = 3, long_gap = 9):
             
             # PC1
             R = Group.pca.score_per_gap[0][gap_idx]
+            if Flip(R): R *= -1
             min_bin, max_bin = round(np.min(R)-1), round(np.max(R) + 1)
             bins = np.arange(min_bin, max_bin + width, width)
-            KL_matrix = Get_KL_Matrix_1D(R, bins, gap_idx, gaps)
-            formatted_annotations = [[format_number(val) for val in row] for row in KL_matrix]
-            sns.heatmap(KL_matrix, ax = axs[i*2], cmap = 'YlGnBu', square = True, cbar = False, vmin = 0, vmax = 30, 
+            JS_Matrix = Get_JS_Matrix_1D(R, bins, gap_idx, gaps)
+            formatted_annotations = [[format_number(val) for val in row] for row in JS_Matrix]
+            sns.heatmap(JS_Matrix, ax = axs[i*2], cmap = 'YlGnBu', square = True, cbar = False, vmin = 0, vmax = 1, 
                         annot=formatted_annotations, annot_kws={'size': tick_size})
             
             # PC2
             R = Group.pca.score_per_gap[1][gap_idx]
+            if Flip(R): R *= -1
             min_bin, max_bin = round(np.min(R)-1), round(np.max(R) + 1)
             bins = np.arange(min_bin, max_bin + width, width)
-            KL_matrix = Get_KL_Matrix_1D(R, bins, gap_idx, gaps)
-            formatted_annotations = [[format_number(val) for val in row] for row in KL_matrix]
-            sns.heatmap(KL_matrix, ax = axs[i*2+1], cmap = 'YlGnBu', square = True, cbar = False, vmin = 0, vmax = 30,
+            JS_Matrix = Get_JS_Matrix_1D(R, bins, gap_idx, gaps)
+            formatted_annotations = [[format_number(val) for val in row] for row in JS_Matrix]
+            sns.heatmap(JS_Matrix, ax = axs[i*2+1], cmap = 'YlGnBu', square = True, cbar = False, vmin = 0, vmax = 1,
                         annot=formatted_annotations, annot_kws={'size': tick_size})
 
         for i in range(4):
@@ -337,13 +358,13 @@ def Low_Dim_Activity_Divergence_by_Space(Group, short_gap = 3, long_gap = 9):
         axs[1].set_title(f'Gap = {gap_dur1}ms\nProjection to PC2', fontsize = sub_title_size)
         axs[2].set_title(f'Gap = {gap_dur2}ms\nProjection to PC1', fontsize = sub_title_size)
         axs[3].set_title(f'Gap = {gap_dur2}ms\nProjection to PC2', fontsize = sub_title_size)
-        fig.suptitle('K-L Divergence between Response Projection in Different Periods', fontsize = title_size, fontweight = 'bold', y=1.05)
+        fig.suptitle('J-S Divergence between Response Projection in Different Periods', fontsize = title_size, fontweight = 'bold', y=1.05)
         return fig
         
     gaps = Group.gaps
     gap_indices = [short_gap, long_gap]
-    fig_KL = Draw_KL_Matrices()
-    return fig_KL
+    fig_JS = Draw_JS_Matrices()
+    return fig_JS
     
 def Low_Dim_Activity_in_Different_Space(Group, short_gap = 3, long_gap = 9, space_name = 'On', period_length = 100, offset_delay = 10):
     def Draw_Projection():
@@ -380,20 +401,22 @@ def Low_Dim_Activity_in_Different_Space(Group, short_gap = 3, long_gap = 9, spac
             
             # PC1
             R = (space_data_loading @ Group.pop_response_stand[:, gap_idx, :])[0]
+            if Flip(R): R *= -1
             min_bin, max_bin = round(np.min(R)-1), round(np.max(R) + 1)
             bins = np.arange(min_bin, max_bin + width, width)
-            KL_matrix = Get_KL_Matrix_1D(R, bins, gap_idx, gaps)
-            formatted_annotations = [[format_number(val) for val in row] for row in KL_matrix]
-            sns.heatmap(KL_matrix, ax = axs[i*2], cmap = 'YlGnBu', square = True, cbar = False, vmin = 0, vmax = 30, 
+            JS_matrix = Get_JS_Matrix_1D(R, bins, gap_idx, gaps)
+            formatted_annotations = [[format_number(val) for val in row] for row in JS_matrix]
+            sns.heatmap(JS_matrix, ax = axs[i*2], cmap = 'YlGnBu', square = True, cbar = False, vmin = 0, vmax = 1, 
                         annot=formatted_annotations, annot_kws={'size': tick_size})
             
             # PC2
             R = (space_data_loading @ Group.pop_response_stand[:, gap_idx, :])[1]
+            if Flip(R): R *= -1
             min_bin, max_bin = round(np.min(R)-1), round(np.max(R) + 1)
             bins = np.arange(min_bin, max_bin + width, width)
-            KL_matrix = Get_KL_Matrix_1D(R, bins, gap_idx, gaps)
-            formatted_annotations = [[format_number(val) for val in row] for row in KL_matrix]
-            sns.heatmap(KL_matrix, ax = axs[i*2+1], cmap = 'YlGnBu', square = True, cbar = False, vmin = 0, vmax = 30,
+            JS_matrix = Get_JS_Matrix_1D(R, bins, gap_idx, gaps)
+            formatted_annotations = [[format_number(val) for val in row] for row in JS_matrix]
+            sns.heatmap(JS_matrix, ax = axs[i*2+1], cmap = 'YlGnBu', square = True, cbar = False, vmin = 0, vmax = 1,
                         annot=formatted_annotations, annot_kws={'size': tick_size})
 
         for i in range(4):
@@ -404,7 +427,7 @@ def Low_Dim_Activity_in_Different_Space(Group, short_gap = 3, long_gap = 9, spac
         axs[1].set_title(f'Gap = {gap_dur1}ms, Project to PC2', fontsize = sub_title_size)
         axs[2].set_title(f'Gap = {gap_dur2}ms, Project to PC1', fontsize = sub_title_size)
         axs[3].set_title(f'Gap = {gap_dur2}ms, Project to PC2', fontsize = sub_title_size)
-        fig.suptitle('K-L Divergence between Response Projection\nin Different Periods', fontsize = title_size, fontweight = 'bold', y=1)
+        fig.suptitle('J-S Divergence between Response Projection', fontsize = title_size, fontweight = 'bold', y=0.95)
         return fig
 
     if space_name == 'On':
@@ -420,9 +443,9 @@ def Low_Dim_Activity_in_Different_Space(Group, short_gap = 3, long_gap = 9, spac
     width = 10
     
     fig_projection = Draw_Projection()
-    fig_KL = Draw_Divergence()
+    fig_JS = Draw_Divergence()
     
-    return fig_projection, fig_KL
+    return fig_projection, fig_JS
     
 def Binary_Classifier(Group, subspace):
     def Get_Model(X, Y, kernel = False, kernel_type = '', alpha = 0):
