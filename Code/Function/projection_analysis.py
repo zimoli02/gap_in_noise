@@ -73,8 +73,8 @@ def Flip(PC, start = 100, end = 125):
 
 def Get_Data_by_Space(data, gap_idx, gaps):
     gap_dur = round(gaps[gap_idx]*1000)
-    data_on = data[350+gap_dur:450+gap_dur]
-    data_off = data[360:460]
+    data_on = data[100:200]
+    data_off = data[460 + gap_dur:560 + gap_dur]
     data_noise = data[250:350]
     data_silence = data[900:1000]
     
@@ -344,7 +344,6 @@ def Low_Dim_Activity_Divergence_by_Space(Group, short_gap = 3, long_gap = 9):
     gap_indices = [short_gap, long_gap]
     fig_KL = Draw_KL_Matrices()
     return fig_KL
-    
     
 def Low_Dim_Activity_in_Different_Space(Group, short_gap = 3, long_gap = 9, space_name = 'On', period_length = 100, offset_delay = 10):
     def Draw_Projection():

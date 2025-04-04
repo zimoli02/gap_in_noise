@@ -47,6 +47,11 @@ space_colors_per_gap = {'on': sns.color_palette('BuGn', 11), 'off':sns.color_pal
 method_colors = {'Pairwise':'#0047AB', 'CCA':'#DC143C', 'RV':'#228B22', 'Trace':'#800080'}
 shade_color = 'gainsboro'
 
+tick_size = 36
+legend_size = 24
+label_size = 40
+sub_title_size = 44
+title_size = 48
 
 ################################################## Basic Functions ##################################################
 
@@ -248,7 +253,7 @@ def Draw_Standard_Subspace_Location(Group, subspace_name, period_length = 50, of
     axs.set_xlabel('Time (ms)', fontsize = 40)
     axs.set_ylabel('Sound Level (dB)', fontsize = 32)
     axs.annotate('Noise 1+2', xy=(190, 62), fontsize=40, color='black')
-    axs.set_title(f'{subspace_name}-Space Location', fontsize = 54, fontweight = 'bold', y = 1.15)
+    axs.set_title(f'Standard {subspace_name}-Space', fontsize = 54, fontweight = 'bold', y = 1.15)
 
     return fig
 
@@ -461,6 +466,30 @@ def Subspace_Similarity_for_All_Gaps(Group, subspace_name, methods, standard_per
         return fig
     
     def Justify_the_Separation_Level_for_each_Space_each_Method():
+        def Draw_Violin_Plot(axs, violin_data):
+            labels = ['on', 'off', 'sustainednoise', 'sustainedsilence']
+            
+            # Create violin plot
+            parts = axs.violinplot(violin_data, positions=range(len(labels)),
+                                    showmeans=True, showextrema=True, showmedians=False)
+                    
+            for j, pc in enumerate(parts['bodies']):
+                label = labels[j]
+                pc.set_facecolor(space_colors[label])
+                pc.set_alpha(0.7)
+            
+            # Customize other violin plot elements
+            #parts['cmedians'].set_color('black')  # Median marker color
+            parts['cbars'].set_color('black')   # Center bar color
+            parts['cmaxes'].set_color('black')  # Max marker color
+            parts['cmins'].set_color('black')   # Min marker color
+
+            axs.axhline(y=0, color = 'grey', linestyle = '--')
+            axs.spines['top'].set_visible(False)
+            axs.spines['right'].set_visible(False)
+            
+            return axs
+        
         subspacenames = ['On', 'Off', 'SustainedNoise', 'SustainedSilence']
         for i in range(len(subspacenames)):
             subspacename = subspacenames[i]
@@ -474,13 +503,20 @@ def Subspace_Similarity_for_All_Gaps(Group, subspace_name, methods, standard_per
             axs = axs.flatten()
             for j in range(len(methods)):
                 method = methods[j]
-                Similarity = np.array(data[9][method])  
                 
-                On_sim = Similarity[:standard_period_length]
-                SustainedNoise_sim = Similarity[250-standard_period_length:250]
-                Off_sim = Similarity[250+offset_delay:250+offset_delay+standard_period_length]
-                SustainedSilence_sim = Similarity[-standard_period_length:]
+                On_sim, Off_sim, SustainedNoise_sim, SustainedSilence_sim = np.array([]), np.array([]), np.array([]), np.array([])
+                for gap_idx in range(10):
+                    gap_dur = round(Group.gaps[gap_idx]*1000)
+                    Similarity = np.array(data[gap_idx][method])  
                 
+                    On_sim = np.concatenate((On_sim, Similarity[0:100]))
+                    Off_sim = np.concatenate((Off_sim, Similarity[360 + gap_dur:460 + gap_dur]))
+                    SustainedNoise_sim = np.concatenate((SustainedNoise_sim, Similarity[150:250]))
+                    SustainedSilence_sim = np.concatenate((SustainedSilence_sim, Similarity[- 100:]))
+
+                axs[j] = Draw_Violin_Plot(axs[j], [On_sim, Off_sim, SustainedNoise_sim, SustainedSilence_sim])
+                
+                '''
                 Similarities = np.array([On_sim, Off_sim, SustainedNoise_sim, SustainedSilence_sim])
                 Means = np.array([np.mean(sim) for sim in Similarities])
                 Stds = np.array([np.std(sim) for sim in Similarities])
@@ -493,12 +529,12 @@ def Subspace_Similarity_for_All_Gaps(Group, subspace_name, methods, standard_per
                 for k in range(4):
                     if k == i: continue
                     add_significance_bar(axs[j], i, k, max_y + 0.1*(k-1), p_values[k])
-
+                '''
                 
-                axs[j].set_yticks([0, 1, 2], labels = [0, 1, 2])
-                axs[j].set_xticks([0,1,2,3], ['On', 'Off', 'S.N.','S.L.'], rotation = 45, ha = 'center')
-                axs[j].tick_params(axis='both', labelsize=28)
-                axs[j].set_ylim(-0.5, 2)
+                axs[j].set_yticks([0, 1], labels = [0, 1])
+                axs[j].set_xticks([0,1,2,3], ['On', 'Off', 'S.N.','S.L.'], ha = 'center')
+                axs[j].tick_params(axis='both', labelsize=32)
+                axs[j].set_ylim(-0.03, 1.03)
                 axs[j].set_title(Comparison_Method_Full_Title(method), fontsize = 34)
 
             fig.suptitle(f'Similarity with {subspacename}-Space\nduring Different Periods', fontsize = 54, fontweight = 'bold') 
@@ -525,7 +561,6 @@ def Determine_Best_Capacity(on_capacities, off_capacities, timewindows, separate
     best_on_capacity, best_off_capacity, best_timewindow = round(centroid[0]), round(centroid[1]), round(centroid[2])
     return best_on_capacity, best_off_capacity, best_timewindow
     
-
 def Period_Capacity_in_Subspace_Comparison(Group, method, max_on_capacity = 75, max_off_capacity = 100, max_timewindow = 100, offset_delay = 10):
     def Draw_Find_Period_Capacity_in_Subspace_Comparison(On_Similarities, Off_Similarities):
         gap_idx = 9
