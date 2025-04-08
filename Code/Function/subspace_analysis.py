@@ -470,7 +470,7 @@ def Subspace_Similarity_for_All_Gaps(Group, subspace_name, methods, standard_per
         return fig
     
     def Justify_the_Separation_Level_for_each_Space_each_Method():
-        def Get_Histogram_by_Space__Across_Gap(data, bins):
+        def Get_Histogram_by_Space_Across_Gap(data, bins):
             data_on, data_off, data_noise, data_silence = data[0], data[1], data[2], data[3]
             
             hist_on, _ = np.histogram(data_on, bins=bins, density=True)
@@ -481,10 +481,10 @@ def Subspace_Similarity_for_All_Gaps(Group, subspace_name, methods, standard_per
             return hist_on, hist_off, hist_noise, hist_silence
         
         def Get_JS_Matrix_1D_Across_Gap(data, bins, base = 2):
-            hist_on, hist_off, hist_noise, hist_silence = Get_Histogram_by_Space__Across_Gap(data, bins)
+            hist_on, hist_off, hist_noise, hist_silence = Get_Histogram_by_Space_Across_Gap(data, bins)
             epsilon = 1e-15
             
-            hists = [hist_on, hist_noise, hist_off, hist_silence]
+            hists = [hist_on, hist_off, hist_noise, hist_silence]
             JS_matrix = np.zeros((4, 4))
             
             for i in range(4):
@@ -526,7 +526,7 @@ def Subspace_Similarity_for_All_Gaps(Group, subspace_name, methods, standard_per
                 On_sim = np.concatenate((On_sim, Similarity[0:100]))
                 Off_sim = np.concatenate((Off_sim, Similarity[360 + gap_dur:460 + gap_dur]))
                 SustainedNoise_sim = np.concatenate((SustainedNoise_sim, Similarity[150:250]))
-                SustainedSilence_sim = np.concatenate((SustainedSilence_sim, Similarity[- 100:]))
+                SustainedSilence_sim = np.concatenate((SustainedSilence_sim, Similarity[-100:]))
                 
             min_bin, max_bin = 0, 1
             width = 0.01
@@ -536,7 +536,7 @@ def Subspace_Similarity_for_All_Gaps(Group, subspace_name, methods, standard_per
             axs[j] = Draw_JS_Divergence_Matrix(axs[j], JS_Matrix)
             axs[j].set_title(Comparison_Method_Full_Title(method), fontsize = 34)
 
-        fig.suptitle(f'J-S Divergence\n{subspace_name}-Space', fontsize = 54, fontweight = 'bold', y=1) 
+        fig.suptitle(f'J-S Divergence of\n{subspace_name}-Space Alignment', fontsize = 54, fontweight = 'bold', y=1) 
         return fig
     
     label = Group.geno_type + '_' + Group.hearing_type
@@ -546,6 +546,185 @@ def Subspace_Similarity_for_All_Gaps(Group, subspace_name, methods, standard_per
     fig_justification = Justify_the_Separation_Level_for_each_Space_each_Method()
     
     return fig, fig_justification 
+
+def Compare_Method_Efficiency(Group, methods, space_names):
+    def Get_MulD_Data_by_Period(R):
+        period_length = 100
+        data_on, data_off, data_noise, data_silence = [], [], [], []
+        for gap_idx in range(10):
+            gap_dur = round(Group.gaps[gap_idx] * 1000)
+            
+            data_on.append(R[gap_idx][:period_length])
+            data_off.append(R[gap_idx][360 + gap_dur:360 + gap_dur + period_length])
+            data_noise.append(R[gap_idx][150:150+period_length])
+            data_silence.append(R[gap_idx][-period_length:])
+
+        data_on = np.vstack(data_on)
+        data_off = np.vstack(data_off)
+        data_noise = np.vstack(data_noise)
+        data_silence = np.vstack(data_silence)
+        return data_on, data_off, data_noise, data_silence
+    
+    
+    
+    def kl_divergence_gaussian(mu0, cov0, mu1, cov1, base = 2):
+        k = len(mu0)
+        cov1_inv = np.linalg.inv(cov1)
+        trace_term = np.trace(cov1_inv @ cov0)
+        mean_diff = mu1 - mu0
+        quad_term = mean_diff.T @ cov1_inv @ mean_diff
+        log_det_term = np.log(np.linalg.det(cov1) / np.linalg.det(cov0) + 1e-15)
+        
+        kl = 0.5 * (trace_term + quad_term - k + log_det_term)
+        
+        '''if base != np.e:
+            kl /= np.log(base)'''
+            
+        return kl
+
+    def Get_JS_Matrix_MulD_Gaussian(data):
+        # Get data by period
+        data_on, data_off, data_noise, data_silence = Get_MulD_Data_by_Period(data)
+        datas = [data_on, data_off, data_noise, data_silence]
+
+        means = [np.mean(d, axis=0) for d in datas]
+        covs = [np.cov(d.T) for d in datas]  # shape D x D
+
+        JS_matrix = np.zeros((4, 4))
+        for i in range(4):
+            for j in range(i, 4):
+                mu1, cov1 = means[i], covs[i]
+                mu2, cov2 = means[j], covs[j]
+
+                mu_m = 0.5 * (mu1 + mu2)
+                cov_m = 0.5 * (cov1 + cov2)
+
+                Dkl1 = kl_divergence_gaussian(mu1, cov1, mu_m, cov_m)
+                Dkl2 = kl_divergence_gaussian(mu2, cov2, mu_m, cov_m)
+
+                JS_matrix[i, j] = JS_matrix[j, i] = 0.5 * (Dkl1 + Dkl2)
+
+        return JS_matrix
+    
+    def Draw_JS_Matrix_MulD_Covariance_Summary():
+        def Get_Data_for_Each_Space(label, method, subspace_name):
+            with open(subspacepath + f'SubspaceEvolution/{subspace_name}/{label}.pkl', 'rb') as f:
+                data = pickle.load(f)
+            data_per_space = []
+            for gap_idx in range(10):
+                data_per_space.append(np.array(data[gap_idx][method]))
+            data_per_space = np.array(data_per_space)
+            return data_per_space
+
+        def Get_Data_for_Each_Method(label, method):
+            #subspace_names = ['On', 'Off', 'SustainedNoise', 'SustainedSilence']
+            subspace_names = ['On', 'Off']
+            data = []
+            for i in range(len(subspace_names)):
+                data_per_space = Get_Data_for_Each_Space(label, method, subspace_names[i])
+                data.append(np.array(data_per_space))
+            data_per_method = np.stack(data, axis = 2)  ## (10, 900, 4)
+            return data_per_method
+
+        means = []
+        fig, axs = plt.subplots(1, 4, figsize = (41.4, 10))
+        plt.subplots_adjust(top=0.8)
+        for i in range(len(methods)):
+            method = methods[i]
+            R = Get_Data_for_Each_Method(label, method)
+            JS_matrix = Get_JS_Matrix_MulD_Gaussian(R)
+            
+            mask = ~np.eye(JS_matrix.shape[0], dtype=bool)
+            off_diagonal_elements = JS_matrix[mask]
+            means.append(np.mean(off_diagonal_elements))
+            
+            formatted_annotations = [[format_number(val) for val in row] for row in JS_matrix]
+            sns.heatmap(JS_matrix, ax = axs[i], cmap = 'YlGnBu', square = True, cbar = False, vmin = 0, vmax = 5,
+                    annot=formatted_annotations, annot_kws={'size': tick_size})
+            axs[i].set_xticks([0.5, 1.5, 2.5, 3.5], ['On', 'Off', 'S.Noi.', 'S.Sil.'], fontsize = tick_size)
+            axs[i].set_yticks([0.5, 1.5, 2.5, 3.5], ['On', 'Off', 'S.Noi.', 'S.Sil.'], fontsize = tick_size)
+            axs[i].set_title(method, fontsize = sub_title_size)
+        fig.suptitle('J-S Divergence between Multi-Dim. Representations: Covariance Alignment', fontsize = title_size, fontweight = 'bold')
+        return means, fig
+    
+    
+    
+    def Draw_JS_Matrix_MulD_Projection_Summary():
+        def Get_Data_for_Each_Gap(Group, space_data_loading, PC):
+            data_per_space = []
+            for gap_idx in range(10):
+                data_per_space.append((space_data_loading @ Group.pop_response_stand[:, gap_idx, 100:])[PC])
+            data_per_space = np.array(data_per_space)
+            return data_per_space
+
+        def Get_Data_for_Each_Subspace(Group, space_name, offset_delay = 10, period_length = 100):
+            if space_name == 'On':
+                space_data = Group.pop_response_stand[:, 0, 100:100 + period_length]
+                space_data_pca = analysis.PCA(space_data, multiple_gaps=False)
+                space_data_loading = space_data_pca.loading
+            elif space_name == 'Off':
+                space_data = Group.pop_response_stand[:, 0, 450 + offset_delay:450 + offset_delay + period_length]
+                space_data_pca = analysis.PCA(space_data, multiple_gaps=False)
+                space_data_loading = space_data_pca.loading
+            else:
+                space_data_loading = Group.pca.loading
+            
+            PCs = [0,1]
+            data_per_space = []
+            for PC in PCs:
+                data_per_space.append(Get_Data_for_Each_Gap(Group, space_data_loading, PC))
+            data_per_space = np.stack(data_per_space, axis = 2)
+            
+            return data_per_space
+        
+        means = []
+        fig, axs = plt.subplots(1, 3, figsize = (30.93, 10))
+        plt.subplots_adjust(top=0.8)
+        for i in range(len(space_names)):
+            space_name = space_names[i]
+            R = Get_Data_for_Each_Subspace(Group, space_name)
+            JS_matrix = Get_JS_Matrix_MulD_Gaussian(R)
+
+            mask = ~np.eye(JS_matrix.shape[0], dtype=bool)
+            off_diagonal_elements = JS_matrix[mask]
+            mean_value = np.mean(off_diagonal_elements)
+            means.append(np.mean(off_diagonal_elements))
+            
+            formatted_annotations = [[format_number(val) for val in row] for row in JS_matrix]
+            sns.heatmap(JS_matrix, ax = axs[i], cmap = 'YlGnBu', square = True, cbar = False, vmin = 0, vmax = 5,
+                    annot=formatted_annotations, annot_kws={'size': tick_size})
+            axs[i].set_xticks([0.5, 1.5, 2.5, 3.5], ['On', 'Off', 'S.Noi.', 'S.Sil.'], fontsize = tick_size)
+            axs[i].set_yticks([0.5, 1.5, 2.5, 3.5], ['On', 'Off', 'S.Noi.', 'S.Sil.'], fontsize = tick_size)
+            axs[i].set_title(f'{space_name}-space', fontsize = sub_title_size)
+        fig.suptitle('J-S Divergence between Multi-Dim. Representations: PC Projections', fontsize = title_size, fontweight = 'bold')
+        return means, fig
+        
+    def Draw_Encoding_Method_Comparison():
+        methods = ['Pairwise', 'CCA', 'RV', 'N.C.A']
+        space_names = ['Full', 'On', 'Off']
+        encoding_methods = []
+        fig, axs = plt.subplots(1, 1, figsize = (10, 11.86))
+        plt.subplots_adjust(top=0.8)
+        for i in range(len(space_names)):
+            axs.bar(i, means_proj[i], color = 'grey', width = 0.8)
+            encoding_methods.append(space_names[i] + '\nProj.')
+        for i in range(len(methods)):
+            axs.bar(i + len(space_names), means_cov[i], color = 'black', width = 0.8)
+            encoding_methods.append(methods[i])
+        axs.set_xticks(np.arange(len(space_names) + len(methods)), encoding_methods, fontsize = tick_size)
+        axs.set_yticks([0,1,2,3],[0,1,2,3], fontsize = tick_size)
+        axs.set_ylabel('Average J-S Divergence', fontsize = label_size)
+        axs.set_xlabel('Encoding Methods', fontsize = label_size)
+        fig.suptitle('Average J-S Divergence\nfor Multi-Dim. Representations', fontsize = title_size, fontweight = 'bold')
+        return fig
+
+    label = Group.geno_type + '_' + Group.hearing_type
+
+    means_cov, fig_covariance_method_summary = Draw_JS_Matrix_MulD_Covariance_Summary()
+    means_proj, fig_projection_summary = Draw_JS_Matrix_MulD_Projection_Summary()
+    fig_method_comparison = Draw_Encoding_Method_Comparison()
+    
+    return fig_covariance_method_summary, fig_projection_summary, fig_method_comparison
 
 def Determine_Best_Capacity(on_capacities, off_capacities, timewindows, separate_level):
     maximum_level = np.max(separate_level)

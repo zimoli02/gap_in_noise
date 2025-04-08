@@ -108,7 +108,7 @@ def Get_JS_Matrix_1D(data, bins, gap_idx, gaps, base=2):
     hist_on, hist_off, hist_noise, hist_silence = Get_Histogram_by_Space(data, bins, gap_idx, gaps)
     epsilon = 1e-15  # To avoid log(0)
     
-    hists = [hist_on, hist_noise, hist_off, hist_silence]
+    hists = [hist_on, hist_off, hist_noise, hist_silence]
     JS_matrix = np.zeros((4, 4))
     
     for i in range(4):
@@ -164,7 +164,7 @@ def Draw_Analysis_Explanation(Group, gap_idx = 9):
         axs[2].set_xticks([0, 500, 1000], ['0', '500', '1000'], fontsize = tick_size)
         axs[2].set_yticks([])
         axs[2].set_xlabel('Time (ms)', fontsize = label_size)
-        axs[2].set_ylabel('$f(t)$', fontsize = label_size)
+        axs[2].set_ylabel('$R(t)$', fontsize = label_size)
 
         # Draw a rectangle on the heatmap
         matrix_height = len(Group_firingrate[sort_idx])
@@ -198,7 +198,7 @@ def Draw_Analysis_Explanation(Group, gap_idx = 9):
 
         axs[2].scatter(450, ft[450], color='magenta', s = 600)
 
-        fig.suptitle(f'Computation of $f(t)$', fontsize = title_size, fontweight = 'bold', y=0.95) 
+        fig.suptitle(f'Computation of $R(t)$', fontsize = title_size, fontweight = 'bold', y=0.95) 
         return fig
         
     def Draw_ft_Histogram():
@@ -224,9 +224,9 @@ def Draw_Analysis_Explanation(Group, gap_idx = 9):
         axs.legend(loc = 'upper left', fontsize = legend_size)
         axs.set_xticks([])
         axs.set_yticks([])
-        axs.set_xlabel('$f(t)$', fontsize = label_size)
+        axs.set_xlabel('$R(t)$', fontsize = label_size)
         axs.set_ylabel('Density', fontsize = label_size)
-        fig.suptitle('$f(t)$ Distribution in Different Periods', fontsize = title_size, fontweight = 'bold')
+        fig.suptitle('$R(t)$ Distribution in Different Periods', fontsize = title_size, fontweight = 'bold')
         
         return fig
         
@@ -243,7 +243,7 @@ def Draw_Analysis_Explanation(Group, gap_idx = 9):
                     annot=formatted_annotations, annot_kws={'size': tick_size})
         axs.set_xticks([0.5, 1.5, 2.5, 3.5], ['On', 'Off', 'S.Noi.', 'S.Sil.'], fontsize = tick_size)
         axs.set_yticks([0.5, 1.5, 2.5, 3.5], ['On', 'Off', 'S.Noi.', 'S.Sil.'], fontsize = tick_size)
-        fig.suptitle('J-S Divergence between $f(t)$', fontsize = title_size, fontweight = 'bold', y=0.95)
+        fig.suptitle('J-S Divergence between $R(t)$', fontsize = title_size, fontweight = 'bold', y=0.95)
         return fig
         
     gaps = Group.gaps

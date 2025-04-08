@@ -34,6 +34,7 @@ class SubspaceParams:
     Standard_Subspace_Comparison: bool = False
     Standard_Subspace_Location: bool = False
     Subspace_Comparison_per_Gap: bool = False
+    Analysis_Comparison: bool = False
     Subspace_Capacity_Determination: bool = False
     Best_Subspace_Comparison: bool = False
     Subspace_Comparison_All_Group_Property: bool = False
@@ -48,7 +49,8 @@ def main():
     DisplayProjectionAnalysis.main(projection_params, group_labels = ['WT_NonHL', 'WT_HL', 'Df1_NonHL', 'Df1_HL'])
 
     subspace_params = SubspaceParams(
-        Subspace_Comparison_per_Gap = True
+        Subspace_Comparison_per_Gap = False,
+        Analysis_Comparison = True
     )
     #DisplaySubspaceAnalysis.main(subspace_params, group_labels = ['WT_NonHL', 'WT_HL', 'Df1_NonHL', 'Df1_HL'])
 

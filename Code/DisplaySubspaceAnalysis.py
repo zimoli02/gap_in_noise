@@ -104,6 +104,18 @@ def Display_Group(params, Group, Label, file_path = '../Images/'):
             
         print('Subspace_Comparison_per_Gap Completed!')
         plt.close('all')
+        
+    if params.Analysis_Comparison:
+        methods = ['Pairwise', 'CCA', 'RV', 'Trace']
+        space_names = ['Full', 'On', 'Off']
+        fig_covariance_method_summary, fig_projection_summary, fig_method_comparison = subspace_analysis.Compare_Method_Efficiency(Group, methods, space_names)
+        sub_file_path = check_path(file_path + '/MethodComparison/' + Label + '/')
+        SaveFig(fig_covariance_method_summary, sub_file_path + 'Covariance_Method')
+        SaveFig(fig_projection_summary, sub_file_path + 'Projection_Method')
+        SaveFig(fig_method_comparison, sub_file_path + 'Method_Comparison')
+        
+        print('Analysis_Comparison Completed!')
+        plt.close('all')
     
     if params.Subspace_Capacity_Determination:
         methods = ['Trace']
@@ -145,7 +157,8 @@ def main(subspace_params, group_labels):
         plt.close('all') 
         print('Subspace_Comparison_Simulation Completed')
         print('\n')
-        
+    
+    
     if subspace_params.Subspace_Comparison_All_Group_Property:
         for method in ['Trace']:
             fig_on, fig_off, fig_off_sigmoid = subspace_analysis.Subspace_Comparison_All_Group_Property(Groups, method, optimised_param = False)
