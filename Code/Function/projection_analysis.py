@@ -221,11 +221,30 @@ def Draw_Analysis_Explanation(Group, gap_idx = 9):
         width = 0.5
         bins = np.arange(min_bin, max_bin + width, width)
         axs = Draw_Histogram_by_Space(axs, R, bins, width, gap_idx, gaps)
-        axs.legend(loc = 'upper left', fontsize = legend_size)
+        axs.legend(loc = 'upper left', fontsize = legend_size+8)
         axs.set_xticks([])
         axs.set_yticks([])
         axs.set_xlabel('$R(t)$', fontsize = label_size)
         axs.set_ylabel('Density', fontsize = label_size)
+        
+        blue_center = 6 
+        green_center = 10 
+
+        arrow_y_position = 0.5 * axs.get_ylim()[1]
+        arrow_props = dict(arrowstyle='<->', color='black', linewidth=7)
+        axs.annotate('', 
+                    xy=(blue_center, arrow_y_position), 
+                    xytext=(green_center, arrow_y_position),
+                    arrowprops=arrow_props)
+
+        # Add the divergence value label
+        divergence_value = 0.9  # Replace with your actual divergence value calculation if available
+        axs.text((blue_center + green_center)/2, arrow_y_position, 
+                f'$D_{{JS}} = {divergence_value:.1f}$',
+                ha='center', va='center',
+                bbox=dict(boxstyle='round,pad=0.5', facecolor='white', edgecolor='black', linewidth=4),
+                fontsize=label_size)
+
         fig.suptitle('$R(t)$ Distribution in Different Periods', fontsize = title_size, fontweight = 'bold')
         
         return fig

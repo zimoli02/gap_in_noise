@@ -15,6 +15,7 @@ from sklearn.decomposition import PCA as SKPCA
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
 
+import matplotlib as mpl
 from matplotlib.lines import Line2D
 import matplotlib.gridspec as gridspec
 from matplotlib.colors import Normalize
@@ -565,8 +566,6 @@ def Compare_Method_Efficiency(Group, methods, space_names):
         data_silence = np.vstack(data_silence)
         return data_on, data_off, data_noise, data_silence
     
-    
-    
     def kl_divergence_gaussian(mu0, cov0, mu1, cov1, base = 2):
         k = len(mu0)
         cov1_inv = np.linalg.inv(cov1)
@@ -634,9 +633,15 @@ def Compare_Method_Efficiency(Group, methods, space_names):
             R = Get_Data_for_Each_Method(label, method)
             JS_matrix = Get_JS_Matrix_MulD_Gaussian(R)
             
+            '''
             mask = ~np.eye(JS_matrix.shape[0], dtype=bool)
             off_diagonal_elements = JS_matrix[mask]
             means.append(np.mean(off_diagonal_elements))
+            '''
+            
+            on_mean = (JS_matrix[0, 1] +  JS_matrix[0, 2] + JS_matrix[0, 3])/3
+            off_mean = (JS_matrix[1, 0] +  JS_matrix[1, 2] + JS_matrix[1, 3])/3
+            means.append((on_mean + off_mean)/2)
             
             formatted_annotations = [[format_number(val) for val in row] for row in JS_matrix]
             sns.heatmap(JS_matrix, ax = axs[i], cmap = 'YlGnBu', square = True, cbar = False, vmin = 0, vmax = 5,
@@ -646,8 +651,6 @@ def Compare_Method_Efficiency(Group, methods, space_names):
             axs[i].set_title(method, fontsize = sub_title_size)
         fig.suptitle('J-S Divergence between Multi-Dim. Representations: Covariance Alignment', fontsize = title_size, fontweight = 'bold')
         return means, fig
-    
-    
     
     def Draw_JS_Matrix_MulD_Projection_Summary():
         def Get_Data_for_Each_Gap(Group, space_data_loading, PC):
@@ -685,10 +688,15 @@ def Compare_Method_Efficiency(Group, methods, space_names):
             R = Get_Data_for_Each_Subspace(Group, space_name)
             JS_matrix = Get_JS_Matrix_MulD_Gaussian(R)
 
+            '''
             mask = ~np.eye(JS_matrix.shape[0], dtype=bool)
             off_diagonal_elements = JS_matrix[mask]
-            mean_value = np.mean(off_diagonal_elements)
             means.append(np.mean(off_diagonal_elements))
+            '''
+            
+            on_mean = (JS_matrix[0, 1] +  JS_matrix[0, 2] + JS_matrix[0, 3])/3
+            off_mean = (JS_matrix[1, 0] +  JS_matrix[1, 2] + JS_matrix[1, 3])/3
+            means.append((on_mean + off_mean)/2)
             
             formatted_annotations = [[format_number(val) for val in row] for row in JS_matrix]
             sns.heatmap(JS_matrix, ax = axs[i], cmap = 'YlGnBu', square = True, cbar = False, vmin = 0, vmax = 5,
@@ -700,7 +708,7 @@ def Compare_Method_Efficiency(Group, methods, space_names):
         return means, fig
         
     def Draw_Encoding_Method_Comparison():
-        methods = ['Pairwise', 'CCA', 'RV', 'N.C.A']
+        methods = ['Pair.', 'CCA', 'RV', 'N.C.A']
         space_names = ['Full', 'On', 'Off']
         encoding_methods = []
         fig, axs = plt.subplots(1, 1, figsize = (10, 11.86))
@@ -711,7 +719,7 @@ def Compare_Method_Efficiency(Group, methods, space_names):
         for i in range(len(methods)):
             axs.bar(i + len(space_names), means_cov[i], color = 'black', width = 0.8)
             encoding_methods.append(methods[i])
-        axs.set_xticks(np.arange(len(space_names) + len(methods)), encoding_methods, fontsize = tick_size)
+        axs.set_xticks(np.arange(len(space_names) + len(methods)), encoding_methods, fontsize = tick_size-4)
         axs.set_yticks([0,1,2,3],[0,1,2,3], fontsize = tick_size)
         axs.set_ylabel('Average J-S Divergence', fontsize = label_size)
         axs.set_xlabel('Encoding Methods', fontsize = label_size)
@@ -1186,23 +1194,39 @@ def Subspace_Similarity_for_All_Gaps_Property(Group, method, optimised_param = T
         for gap_idx in range(10):
             gap_dur = round(Group.gaps[gap_idx]*1000)
             Similarity_Index = Similarity_Indices[gap_idx]
-            start, end= 250, 250 + gap_dur + 100
-            axs.plot(np.arange(100 + gap_dur), Similarity_Index[start:end], color = space_colors_per_gap['off'][gap_idx], linewidth = 6)
-            axs.plot([gap_dur, gap_dur], [0, Similarity_Index[250 + gap_dur]], color = 'grey', linestyle = ':', linewidth = 4)
+            start, end= 250, 250 + 100
+            axs.plot(np.arange(100), Similarity_Index[start:end], color = space_colors_per_gap['off'][gap_idx], linewidth = 6)
+            #axs.plot([gap_dur, gap_dur], [0, Similarity_Index[250 + gap_dur]], color = 'grey', linestyle = ':', linewidth = 4)
             delays.append(Find_Threshold(Similarity_Index[start:end]))
             peak_values.append(np.max(Similarity_Index[start:end]))
-        axs.plot(np.arange(plot_length), average_similarity_index, color = 'lightcoral', linewidth = 8, label = f'{subspace_name}-Subspace Evolution') 
-        axs.axvline(x = np.mean(delays), color = 'red', linestyle = ':', linewidth = 4, label = f'Delay = {np.mean(delays)}ms')
-        axs.plot([], [], color = 'grey', linestyle = ':', linewidth = 4, label = 'Noise 2 Starts')
-        axs.legend(loc = 'upper right', fontsize = 32)
+        #axs.plot(np.arange(plot_length), average_similarity_index, color = 'lightcoral', linewidth = 8, label = f'{subspace_name}-Subspace Evolution') 
+        #axs.axvline(x = np.mean(delays), color = 'red', linestyle = ':', linewidth = 4, label = f'Delay = {np.mean(delays)}ms')
+        #axs.plot([], [], color = 'grey', linestyle = ':', linewidth = 4, label = 'Noise 2 Starts')
+        #axs.legend(loc = 'upper right', fontsize = 32)
         
-        axs.set_xlim((0, plot_length))
+        axs.set_xlim((0, plot_length+10))
         axs.set_xticks([0, 50, 100], labels = [0,  50, 100])
         axs.set_yticks([0,1], labels = [0,1])
-        axs.tick_params(axis = 'both', labelsize = 36)
-        axs.set_ylabel('Subspace Similarity', fontsize = 40)
-        axs.set_xlabel('Noise 1 Offset (ms)', fontsize = 40)
-        fig1.suptitle('Pre-Gap Offset\nOff-Similarity', fontsize = 54, fontweight = 'bold')
+        axs.tick_params(axis = 'both', labelsize = tick_size)
+        axs.set_ylabel('$R_{Off}(t)$', fontsize = label_size)
+        axs.set_xlabel('Noise 1 Offset (ms)', fontsize = label_size)
+        
+        # Create the colorbar
+        colors = space_colors_per_gap['off']
+        cmap = mpl.colors.ListedColormap(colors[:10])  # Use only the first 10 colors
+        norm = mpl.colors.Normalize(vmin=0, vmax=10)    # We have 10 gaps (0-9)
+
+        cbar_ax = fig1.add_axes([0.85, 0.15, 0.03, 0.7]) 
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+        sm.set_array([])
+        
+        # Add the "Gap #10" and "Gap #1" labels
+        cbar = plt.colorbar(sm, cax=cbar_ax)
+        cbar.set_ticks([0.5, 9.5])  # Position ticks appropriately for first and last gaps
+        cbar.set_ticklabels(['Gap #1', 'Gap #10'])  # Set labels
+        cbar.ax.tick_params(labelsize=32)  # Set font size
+
+        fig1.suptitle('Offset Representation', fontsize = title_size, fontweight = 'bold')
         
         fig2, axs = plt.subplots(1, 1, figsize=(10, 10))  
         for gap_idx in range(1, 10):
