@@ -144,7 +144,7 @@ def Draw_Analysis_Explanation(Group, gap_idx = 9):
         Group_firingrate = Group.pop_response_stand[:, gap_idx, :]
         sort_idx = np.argsort(Group.pca.loading[0])[::-1]
 
-        fig, axs = plt.subplots(3, 1, figsize=(40, 20), gridspec_kw={'height_ratios': [30, 1, 20]})
+        fig, axs = plt.subplots(3, 1, figsize=(30.93, 20.47), gridspec_kw={'height_ratios': [30, 1, 20]})
         sns.heatmap(Group_firingrate[sort_idx], ax=axs[0], 
                     vmin = 0, vmax = 100, cmap='binary', cbar=False)
         sns.heatmap([sound_cond+0.15], ax=axs[1], 
@@ -214,7 +214,7 @@ def Draw_Analysis_Explanation(Group, gap_idx = 9):
             
             return axs
 
-        fig, axs = plt.subplots(1, 1, figsize = (30, 10))
+        fig, axs = plt.subplots(1, 1, figsize = (20.47, 10))
         R = Simulate_ft()
         min_bin, max_bin = round(np.min(R)-1), round(np.max(R) + 1)
 

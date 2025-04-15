@@ -1109,7 +1109,7 @@ def Subspace_Similarity_for_All_Gaps_Property(Group, method, optimised_param = T
             if diff[i] > max_increase/5: 
                 return i
     
-    def Draw_Similarity_Index_for_All_Gap_All_Subspace(On_Similarities, Off_Similarities):
+    def Draw_Representation_for_All_Gap_All_Subspace(On_Similarities, Off_Similarities):
         fig, axs = plt.subplots(10, 1, figsize=(16, 35))  
         check_point = 100
         for gap_idx in range(10):
@@ -1138,81 +1138,38 @@ def Subspace_Similarity_for_All_Gaps_Property(Group, method, optimised_param = T
         fig.legend(lines, labels, loc='upper right', bbox_to_anchor=(0.9, 0.88), ncol=1, fontsize=32)
         return fig
     
-    def Draw_On_Similarity_Summary(Similarity_Indices, plot_length, subspace_name):
-        average_similarity_index = Similarity_Indices[1]
-        start, end = 0, 0 + plot_length
-        average_similarity_index = average_similarity_index[start:end]
-        
-        fig1, axs = plt.subplots(1, 1, figsize=(10, 10))  
-        delays = []
-        peak_values = []
-        for gap_idx in range(10):
-            gap_dur = round(Group.gaps[gap_idx]*1000)
-            start, end = 250 + gap_dur, 250 + gap_dur + plot_length
-            
-            Similarity_Index = Similarity_Indices[gap_idx]
-            axs.plot(np.arange(plot_length), Similarity_Index[start:end], color = space_colors_per_gap['on'][gap_idx], linewidth = 6)
-                
-            delays.append(Find_Threshold(Similarity_Index[start:end]))
-            peak_values.append(np.max(Similarity_Index[start:end]))
-            
-        axs.plot(np.arange(plot_length), average_similarity_index, color = 'lightcoral', linewidth = 8, label = f'{subspace_name}-Subspace Evolution') 
-        axs.axvline(x = np.mean(delays), color = 'red', linestyle = ':', linewidth = 4, label = f'Delay = {np.mean(delays)}ms')
-        axs.legend(loc = 'upper right', fontsize = 32)
-        
-        axs.set_xlim((0, plot_length))
-        axs.set_xticks([0, 50, 100], labels = [0,  50, 100])
-        axs.set_yticks([0,1], labels = [0, 1])
-        axs.tick_params(axis = 'both', labelsize = 36)
-        axs.set_ylabel('Subspace Similarity', fontsize = 40)
-        axs.set_xlabel('Noise 2 Onset (ms)', fontsize = 40)
-        fig1.suptitle('Post-Gap Onset\nOn-Similarity', fontsize = 54, fontweight = 'bold')
-        
-        fig2, axs = plt.subplots(1, 1, figsize=(10, 10))  
-        for gap_idx in range(1, 10):
-            axs.scatter(gap_idx, peak_values[gap_idx], color = space_colors_per_gap['on'][gap_idx], s = 400)
-        axs.plot(np.arange(1, 10), peak_values[1:], color = space_colors['on'], linewidth = 5)
-        #axs.legend(loc = 'upper left', fontsize = 24)
-        
-        axs.set_xticks([1, 3, 5, 7, 9], labels = ['2$^0$', '2$^2$', '2$^4$', '2$^6$', '2$^8$'])
-        axs.set_yticks([0,1], labels = [0, 1])
-        axs.tick_params(axis = 'both', labelsize = 36)
-        axs.set_xlabel(f'Gap Duration (ms)', fontsize = 40)
-        axs.set_ylabel('Similarity Index', fontsize = 40)
-        fig2.suptitle(f'Max. {subspace_name} Similarity', fontsize = 54, fontweight = 'bold')
-        
-        return fig1, fig2
            
-    def Draw_Off_Similarity_Summary(Similarity_Indices, plot_length, subspace_name):
-        average_similarity_index = Similarity_Indices[1]
-        start, end= 350 + 1, 350 + 1 + plot_length
-        average_similarity_index = average_similarity_index[start:end]
+    def Draw_Representation_in_Period_Across_Gaps(Similarity_Indices, plot_length, subspace_name):
+        colors = space_colors_per_gap[subspace_name[0].lower() + subspace_name[1:]]
         
+        if subspace_name == 'On':
+            representation_title = '$R_{On}(t)$'
+        if subspace_name == 'Off':
+            representation_title = '$R_{Off}(t)$'
+
         fig1, axs = plt.subplots(1, 1, figsize=(10, 10))  
-        delays = []
         peak_values = []
         for gap_idx in range(10):
             gap_dur = round(Group.gaps[gap_idx]*1000)
             Similarity_Index = Similarity_Indices[gap_idx]
-            start, end= 250, 250 + 100
-            axs.plot(np.arange(100), Similarity_Index[start:end], color = space_colors_per_gap['off'][gap_idx], linewidth = 6)
-            #axs.plot([gap_dur, gap_dur], [0, Similarity_Index[250 + gap_dur]], color = 'grey', linestyle = ':', linewidth = 4)
-            delays.append(Find_Threshold(Similarity_Index[start:end]))
+            
+            if subspace_name == 'On':
+                start, end = 250, 250 + plot_length
+            # + gap_dur
+            if subspace_name == 'Off':
+                start, end = 250, 250 + plot_length
+                
+            axs.plot(np.arange(plot_length), Similarity_Index[start:end], color = colors[gap_idx], linewidth = 6)
             peak_values.append(np.max(Similarity_Index[start:end]))
-        #axs.plot(np.arange(plot_length), average_similarity_index, color = 'lightcoral', linewidth = 8, label = f'{subspace_name}-Subspace Evolution') 
-        #axs.axvline(x = np.mean(delays), color = 'red', linestyle = ':', linewidth = 4, label = f'Delay = {np.mean(delays)}ms')
-        #axs.plot([], [], color = 'grey', linestyle = ':', linewidth = 4, label = 'Noise 2 Starts')
-        #axs.legend(loc = 'upper right', fontsize = 32)
         
         axs.set_xlim((0, plot_length+10))
-        axs.set_xticks([0, 50, 100], labels = [0,  50, 100])
+        axs.set_xticks([0, 50, 100], labels = [0, 50, 100])
         axs.set_yticks([0,1], labels = [0,1])
         axs.tick_params(axis = 'both', labelsize = tick_size)
-        axs.set_ylabel('$R_{Off}(t)$', fontsize = label_size)
-        axs.set_xlabel('Noise 1 Offset (ms)', fontsize = label_size)
+        axs.set_ylabel(representation_title, fontsize = label_size)
+        axs.set_xlabel(f'Noise 1 {subspace_name}set (ms)', fontsize = label_size)
         
         # Create the colorbar
-        colors = space_colors_per_gap['off']
         cmap = mpl.colors.ListedColormap(colors[:10])  # Use only the first 10 colors
         norm = mpl.colors.Normalize(vmin=0, vmax=10)    # We have 10 gaps (0-9)
 
@@ -1226,19 +1183,20 @@ def Subspace_Similarity_for_All_Gaps_Property(Group, method, optimised_param = T
         cbar.set_ticklabels(['Gap #1', 'Gap #10'])  # Set labels
         cbar.ax.tick_params(labelsize=32)  # Set font size
 
-        fig1.suptitle('Offset Representation', fontsize = title_size, fontweight = 'bold')
+        fig1.suptitle(f'{subspace_name}set Representation', fontsize = title_size, fontweight = 'bold')
+        
         
         fig2, axs = plt.subplots(1, 1, figsize=(10, 10))  
         for gap_idx in range(1, 10):
-            axs.scatter(gap_idx, peak_values[gap_idx], color = space_colors_per_gap['off'][gap_idx], s = 400)
-        axs.plot(np.arange(1, 10), peak_values[1:], color = space_colors['off'], linewidth = 5)
+            axs.scatter(gap_idx, peak_values[gap_idx], color = colors[gap_idx], s = 400)
+        axs.plot(np.arange(1, 10), peak_values[1:], color = space_colors[subspace_name[0].lower() + subspace_name[1:]], linewidth = 5)
         
         axs.set_xticks([1, 3, 5, 7, 9], labels = ['2$^0$', '2$^2$', '2$^4$', '2$^6$', '2$^8$'])
         axs.set_yticks([0,1], labels = [0, 1])
-        axs.tick_params(axis = 'both', labelsize = 36)
-        axs.set_xlabel(f'Gap Duration (ms)', fontsize = 40)
-        axs.set_ylabel('Similarity Index', fontsize = 40)
-        fig2.suptitle(f'Max. {subspace_name} Similarity', fontsize = 54, fontweight = 'bold')
+        axs.tick_params(axis = 'both', labelsize = tick_size)
+        axs.set_xlabel(f'Gap Duration (ms)', fontsize = label_size)
+        axs.set_ylabel('Max. ' + representation_title , fontsize = label_size)
+        fig2.suptitle('Max. ' + representation_title, fontsize = title_size, fontweight = 'bold')
         
         return fig1, fig2
 
@@ -1260,9 +1218,9 @@ def Subspace_Similarity_for_All_Gaps_Property(Group, method, optimised_param = T
             data = pickle.load(f)
         Off_Similarities = np.array([data[i][method] for i in range(10)]) 
     
-    fig_subspace_comparison = Draw_Similarity_Index_for_All_Gap_All_Subspace(On_Similarities, Off_Similarities)
-    fig_on_similarity_evolution, fig_on_similarity_peak = Draw_On_Similarity_Summary(On_Similarities, plot_length = 100, subspace_name = 'On')
-    fig_off_similarity_evolution, fig_off_similarity_peak = Draw_Off_Similarity_Summary(Off_Similarities, plot_length = 100, subspace_name = 'Off')
+    fig_subspace_comparison = Draw_Representation_for_All_Gap_All_Subspace(On_Similarities, Off_Similarities)
+    fig_on_similarity_evolution, fig_on_similarity_peak = Draw_Representation_in_Period_Across_Gaps(On_Similarities, plot_length = 100, subspace_name = 'On')
+    fig_off_similarity_evolution, fig_off_similarity_peak = Draw_Representation_in_Period_Across_Gaps(Off_Similarities, plot_length = 100, subspace_name = 'Off')
     
     return fig_subspace_comparison, [fig_on_similarity_evolution, fig_on_similarity_peak], [fig_off_similarity_evolution, fig_off_similarity_peak]
 
