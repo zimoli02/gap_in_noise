@@ -27,8 +27,8 @@ plt.rcParams['savefig.transparent'] = True
 projectionpath = '/Volumes/Research/GapInNoise/Data/Projection/'
 
 ################################################## Colors and Font ##################################################
-response_colors = {'on': 'darkorange', 'off': 'olive', 'both': 'dodgerblue', 'none':'grey'}
-response_psth_colors = {'on': 'bisque', 'off': 'darkkhaki', 'both': 'lightskyblue', 'none':'lightgrey'}
+response_colors = {'on': 'olive', 'off': 'dodgerblue', 'both': 'darkorange', 'none':'grey'}
+response_psth_colors = {'on': 'darkkhaki', 'off': 'lightskyblue', 'both': 'bisque', 'none':'lightgrey'}
 shape_colors = {1: 'pink', 2: 'lightblue', 0:'grey'}
 gap_colors = pal
 group_colors =  {'WT_NonHL': 'chocolate', 'WT_HL':'orange', 'Df1_NonHL':'black', 'Df1_HL':'grey'}
@@ -123,6 +123,48 @@ def Get_JS_Matrix_1D(data, bins, gap_idx, gaps, base=2):
     
     return JS_matrix
 
+def Draw_Period_Selection_Explanation(Group, gap_idx = 0):
+    gap_dur = round(Group.gaps[gap_idx]*1000)
+    group_data = Group.pop_response_stand[:, gap_idx, :]
+
+    average_FR = np.mean(group_data, axis = 0)
+    PC1 = Group.pca.score_per_gap[0, gap_idx] * (-1)
+    PC2 = Group.pca.score_per_gap[1, gap_idx] * (-1)
+
+    fig, axs = plt.subplots(3, 1, figsize = (20.47, 10))
+    axs[0].plot(np.arange(1000), average_FR, linewidth = 5, color = 'black')
+    axs[1].plot(np.arange(1000), PC1, linewidth = 5, color = 'black')
+    axs[2].plot(np.arange(1000), PC2, linewidth = 5, color = 'black')
+
+    rectangle_width = 100
+    for i in range(3):
+        ymin, ymax = axs[i].get_ylim()
+        
+        axs[i].fill_between([100, 350], ymin, ymax, facecolor = shade_color)
+        axs[i].fill_between([350+gap_dur, 450+gap_dur], ymin, ymax, facecolor = shade_color)
+        
+        rect = patches.Rectangle((100, ymin), rectangle_width, ymax-ymin, linewidth=5, edgecolor='green', facecolor='none', linestyle = '--')
+        axs[i].add_patch(rect)
+        rect = patches.Rectangle((460, ymin), rectangle_width, ymax-ymin, linewidth=5, edgecolor='blue', facecolor='none', linestyle = '--')
+        axs[i].add_patch(rect)
+        
+        rect = patches.Rectangle((250, ymin), rectangle_width, ymax-ymin, linewidth=5, edgecolor='orange', facecolor='none', linestyle = '--')
+        axs[i].add_patch(rect)
+        
+        rect = patches.Rectangle((900, ymin), rectangle_width, ymax-ymin, linewidth=5, edgecolor='darkgrey', facecolor='none', linestyle = '--')
+        axs[i].add_patch(rect)
+        
+        axs[i].set_xticks([])
+        axs[i].set_yticks([])
+    axs[2].set_xticks([0, 500, 1000], [0, 500, 1000], fontsize = tick_size)
+    axs[2].set_xlabel('Time (ms)', fontsize = label_size)
+    axs[0].set_ylabel('Mean FR', fontsize = label_size)
+    axs[1].set_ylabel('PC1', fontsize = label_size)
+    axs[2].set_ylabel('PC2', fontsize = label_size)
+    
+    return fig
+
+
 def Draw_Analysis_Explanation(Group, gap_idx = 9):
     def Simulate_ft():
         pre_N1 = np.random.normal(loc=1, scale=1.5, size=100)
@@ -144,7 +186,7 @@ def Draw_Analysis_Explanation(Group, gap_idx = 9):
         Group_firingrate = Group.pop_response_stand[:, gap_idx, :]
         sort_idx = np.argsort(Group.pca.loading[0])[::-1]
 
-        fig, axs = plt.subplots(3, 1, figsize=(30.93, 20.47), gridspec_kw={'height_ratios': [30, 1, 20]})
+        fig, axs = plt.subplots(3, 1, figsize=(30.93, 10), gridspec_kw={'height_ratios': [30, 1, 20]})
         sns.heatmap(Group_firingrate[sort_idx], ax=axs[0], 
                     vmin = 0, vmax = 100, cmap='binary', cbar=False)
         sns.heatmap([sound_cond+0.15], ax=axs[1], 
@@ -209,12 +251,12 @@ def Draw_Analysis_Explanation(Group, gap_idx = 9):
             
             axs.bar(np.arange(min_bin, max_bin, width), hist_on, color = space_colors['on'], width = width, alpha = 0.5, label = 'Onset')
             axs.bar(np.arange(min_bin, max_bin, width), hist_off, color = space_colors['off'], width = width, alpha = 0.5, label = 'Offset')
-            axs.bar(np.arange(min_bin, max_bin, width), hist_noise, color = space_colors['sustainednoise'], width = width, alpha = 0.5, label = 'Sustained Noise')
-            axs.bar(np.arange(min_bin, max_bin, width), hist_silence, color = space_colors['sustainedsilence'], width = width, alpha = 0.5, label = 'Sustained Silence')
+            axs.bar(np.arange(min_bin, max_bin, width), hist_noise, color = space_colors['sustainednoise'], width = width, alpha = 0.5, label = 'S. Noise')
+            axs.bar(np.arange(min_bin, max_bin, width), hist_silence, color = space_colors['sustainedsilence'], width = width, alpha = 0.5, label = 'S. Silence')
             
             return axs
 
-        fig, axs = plt.subplots(1, 1, figsize = (20.47, 10))
+        fig, axs = plt.subplots(1, 1, figsize = (10, 10))
         R = Simulate_ft()
         min_bin, max_bin = round(np.min(R)-1), round(np.max(R) + 1)
 
@@ -231,7 +273,7 @@ def Draw_Analysis_Explanation(Group, gap_idx = 9):
         green_center = 10 
 
         arrow_y_position = 0.5 * axs.get_ylim()[1]
-        arrow_props = dict(arrowstyle='<->', color='black', linewidth=7)
+        arrow_props = dict(arrowstyle='<->', color='black', linewidth=5)
         axs.annotate('', 
                     xy=(blue_center, arrow_y_position), 
                     xytext=(green_center, arrow_y_position),
@@ -242,10 +284,10 @@ def Draw_Analysis_Explanation(Group, gap_idx = 9):
         axs.text((blue_center + green_center)/2, arrow_y_position, 
                 f'$D_{{JS}} = {divergence_value:.1f}$',
                 ha='center', va='center',
-                bbox=dict(boxstyle='round,pad=0.5', facecolor='white', edgecolor='black', linewidth=4),
+                bbox=dict(boxstyle='round,pad=0.5', facecolor='white', edgecolor='black', linewidth=3),
                 fontsize=label_size)
 
-        fig.suptitle('$R(t)$ Distribution in Different Periods', fontsize = title_size, fontweight = 'bold')
+        fig.suptitle('$R(t)$ Distribution', fontsize = title_size, fontweight = 'bold')
         
         return fig
         
@@ -262,7 +304,7 @@ def Draw_Analysis_Explanation(Group, gap_idx = 9):
                     annot=formatted_annotations, annot_kws={'size': tick_size})
         axs.set_xticks([0.5, 1.5, 2.5, 3.5], ['On', 'Off', 'S.Noi.', 'S.Sil.'], fontsize = tick_size)
         axs.set_yticks([0.5, 1.5, 2.5, 3.5], ['On', 'Off', 'S.Noi.', 'S.Sil.'], fontsize = tick_size)
-        fig.suptitle('J-S Divergence between $R(t)$', fontsize = title_size, fontweight = 'bold', y=0.95)
+        fig.suptitle('$R(t)$ J-S Divergence', fontsize = title_size, fontweight = 'bold', y=0.95)
         return fig
         
     gaps = Group.gaps
@@ -510,11 +552,34 @@ def Low_Dim_Activity_Divergence_by_Space(Group, short_gap = 3, long_gap = 9):
         axs[3].set_title(f'Gap = {gap_dur2}ms\nProjection to PC2', fontsize = sub_title_size)
         fig.suptitle('J-S Divergence between Response Projection in Different Periods', fontsize = title_size, fontweight = 'bold', y=1.05)
         return fig
+
+    def Print_Data(PC = 0):
+        # Average divergence between onset and sustained silence
+        JS_Matrices = []
+        width = 10
+        for i in range(len(gap_indices)):
+            gap_idx = gap_indices[i]
+            
+            R = Group.pca.score_per_gap[PC][gap_idx]
+            if Flip(R): R *= -1
+            min_bin, max_bin = round(np.min(R)-1), round(np.max(R) + 1)
+            bins = np.arange(min_bin, max_bin + width, width)
+            JS_Matrix = Get_JS_Matrix_1D(R, bins, gap_idx, gaps)
+            JS_Matrices.append(JS_Matrix)
+        JS_Matrices = np.array(JS_Matrices)
+        average_JS_Matrix = np.mean(JS_Matrices, axis = 0)
+        print(f'Average JS_Divergence between Onset and Sustained Noise on PC {PC+1} is {average_JS_Matrix[0,2]}')
+        print(f'Average JS_Divergence between Onset and Sustained Silence on PC {PC+1} is {average_JS_Matrix[0,3]}')
+        print(f'Average JS_Divergence between Offset and Sustained Noise on PC {PC+1} is {average_JS_Matrix[1,2]}')
+        print(f'Average JS_Divergence between Offset and Sustained Silence on PC {PC+1} is {average_JS_Matrix[1,3]}')
+        
         
     gaps = Group.gaps
     gap_indices = [short_gap, long_gap]
     fig_JS = Draw_JS_Matrices()
-    return fig_JS
+    Print_Data(PC = 0)
+    Print_Data(PC = 1)
+    return fig_JS 
     
 def Low_Dim_Activity_in_Different_Space(Group, short_gap = 3, long_gap = 9, space_name = 'On', period_length = 100, offset_delay = 10):
     def Draw_Projection():
@@ -579,6 +644,26 @@ def Low_Dim_Activity_in_Different_Space(Group, short_gap = 3, long_gap = 9, spac
         axs[3].set_title(f'Gap = {gap_dur2}ms, Project to PC2', fontsize = sub_title_size)
         fig.suptitle('J-S Divergence between Response Projection', fontsize = title_size, fontweight = 'bold', y=0.95)
         return fig
+    
+    def Print_Data(PC = 0):
+        JS_Matrices = []
+        width = 10
+        for i in range(len(gap_indices)):
+            gap_idx = gap_indices[i]
+            
+            R = (space_data_loading @ Group.pop_response_stand[:, gap_idx, :])[PC]
+            if Flip(R): R *= -1
+            min_bin, max_bin = round(np.min(R)-1), round(np.max(R) + 1)
+            bins = np.arange(min_bin, max_bin + width, width)
+            JS_Matrix = Get_JS_Matrix_1D(R, bins, gap_idx, gaps)
+            JS_Matrices.append(JS_Matrix)
+        JS_Matrices = np.array(JS_Matrices)
+        average_JS_Matrix = np.mean(JS_Matrices, axis = 0)
+        print(f'Average Divergence Index for Onset on PC {PC+1} is {(np.sum(average_JS_Matrix[0]) - average_JS_Matrix[0,0])/3}')
+        print(f'Average Divergence Index for Offset on PC {PC+1} is {(np.sum(average_JS_Matrix[1]) - average_JS_Matrix[1,1])/3}')
+        print(f'Average Divergence Index for Sustained Noise on PC {PC+1} is {(np.sum(average_JS_Matrix[2]) - average_JS_Matrix[2,2])/3}')
+        print(f'Average Divergence Index for Sustained Silence on PC {PC+1} is {(np.sum(average_JS_Matrix[3]) - average_JS_Matrix[3,3])/3}')
+        print(f'Average JS_Divergence between Offset and Sustained Silence on PC {PC+1} is {average_JS_Matrix[1,3]}')
 
     if space_name == 'On':
         space_data = Group.pop_response_stand[:, 0, 100:100 + period_length]
@@ -594,6 +679,10 @@ def Low_Dim_Activity_in_Different_Space(Group, short_gap = 3, long_gap = 9, spac
     
     fig_projection = Draw_Projection()
     fig_JS = Draw_Divergence()
+    
+    print(space_name + ' Space: ')
+    Print_Data(PC = 0)
+    Print_Data(PC = 1)
     
     return fig_projection, fig_JS
     

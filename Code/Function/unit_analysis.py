@@ -100,8 +100,8 @@ def Determine_Type_All(Group):
     return np.array(unit_type)
 
 ################################################## Colors ##################################################
-response_colors = {'on': 'darkorange', 'off': 'chartreuse', 'both': 'dodgerblue', 'none':'grey'}
-response_psth_colors = {'on': 'bisque', 'off': 'palegreen', 'both': 'lightskyblue', 'none':'lightgrey'}
+response_colors = {'on': 'olive', 'off': 'dodgerblue', 'both': 'darkorange', 'none':'grey'}
+response_psth_colors = {'on': 'darkkhaki', 'off': 'lightskyblue', 'both': 'bisque', 'none':'lightgrey'}
 shape_colors = {1: 'pink', 2: 'lightblue', 0:'grey'}
 gap_colors = pal
 group_colors =  {'WT_NonHL': 'chocolate', 'WT_HL':'orange', 'Df1_NonHL':'black', 'Df1_HL':'grey'}
@@ -110,6 +110,12 @@ period_colors = {'Noise1': 'darkgreen', 'Gap': 'darkblue', 'Noise2': 'forestgree
 space_colors_per_gap = {'on': sns.color_palette('BuGn', 11), 'off':sns.color_palette('GnBu', 11)}
 method_colors = {'Pairwise':'#0047AB', 'CCA':'#DC143C', 'RV':'#228B22', 'Trace':'#800080'}
 shade_color = 'gainsboro'
+
+tick_size = 36
+legend_size = 24
+label_size = 40
+sub_title_size = 44
+title_size = 48
 
 ################################################## Non-Specific Plotting ##################################################
 
@@ -172,7 +178,76 @@ def Draw_Example_Unit():
     
     return figs
 
+def Draw_Single_Units():
+    def Draw_Unit_of_Type(axs, neuron_data, gap_idx, unit_type):
+        gap_dur = round(Group.gaps[gap_idx]*1000)
+        
+        #psth = neuron_data[gap_idx, :].reshape(200, -1).sum(axis=1)/5
+        psth = neuron_data[gap_idx, :]
+        
+        axs.bar(np.arange(100), psth[:100], width=0.8, color = 'grey', edgecolor='none')
+            
+        axs.bar(np.arange(100, 200, 1), psth[100:200], width=2.0, color = response_colors[unit_type], edgecolor='none')
+        axs.bar(np.arange(200, 360, 1), psth[200:360], width=2.0, color = 'grey', edgecolor='none')
+        
+        if gap_dur<110:
+            axs.bar(np.arange(360, 460, 1), psth[360:460], width=2.0, color = response_colors[unit_type], edgecolor='none')
+        else:
+            axs.bar(np.arange(360, 460, 1), psth[360:460], width=2.0, color = response_colors[unit_type], edgecolor='none')
+            axs.bar(np.arange(460, 350+gap_dur, 1), psth[460:350+gap_dur], width=2.0, color = 'grey', edgecolor='none')
+        
+        axs.bar(np.arange(350+gap_dur, 450+gap_dur, 1), psth[350+gap_dur:450+gap_dur], width=2.0, color = response_colors[unit_type], edgecolor='none')
+        axs.bar(np.arange(450+gap_dur, 460+gap_dur, 1), psth[450+gap_dur:460+gap_dur], width=2.0, color = 'grey', edgecolor='none')
+        axs.bar(np.arange(460+gap_dur, 560+gap_dur, 1), psth[460+gap_dur:560+gap_dur], width=2.0, color = response_colors[unit_type], edgecolor='none')
+        axs.bar(np.arange(560+gap_dur, 1000, 1), psth[560+gap_dur:1000], width=2.0, color = 'grey', edgecolor='none')
+        
+        
+        
+        for i in range(2):
+            axs.set_xticks([])
 
+        
+        axs.set_yticks([0, 100], labels = [0,100], fontsize = tick_size)
+        axs.set_xlabel("")
+        
+        return axs
+        
+
+    def Draw_Trial(gap_idx):
+        sound_cond = Group.gaps_label[gap_idx]
+        gap_dur = round(Group.gaps[gap_idx]*1000)
+
+
+        fig, axs = plt.subplots(5, 1, figsize=(20.47, 20.47), gridspec_kw={'height_ratios': [30, 30, 30, 30, 1]}, sharex=True)
+        
+        types = ['on', 'off', 'both', 'none']
+        idx = [1, 0, 2, 46]
+        unit_type = Determine_Type_All(Group)
+        for i in range(4):
+            type_index = unit_type == types[i]
+            axs[i] = Draw_Unit_of_Type(axs[i], Group.pop_response_stand[type_index][idx[i]], gap_idx=gap_idx, unit_type=types[i])
+        
+        axs[0].set_ylabel('On-Resp.', fontsize = label_size)
+        axs[1].set_ylabel('Off-Resp.', fontsize = label_size)
+        axs[2].set_ylabel('Both-Resp.', fontsize = label_size)
+        axs[3].set_ylabel('No Resp.', fontsize = label_size)
+        
+        sns.heatmap([sound_cond+0.15], ax=axs[4], vmin=0, vmax=1, cmap='Blues', cbar=False)
+        axs[4].set_xticks([])
+        axs[4].set_yticks([])
+        axs[4].set_ylabel("")
+        
+        fig.suptitle(f'Gap = {gap_dur} ms', fontsize = title_size, y=0.9)
+        return fig 
+
+    with open(grouppath +  'WT_NonHL.pickle', 'rb') as file:
+        Group = pickle.load(file)
+        
+    fig_short = Draw_Trial(gap_idx=3) 
+    fig_long = Draw_Trial(gap_idx=9)
+    
+    return fig_short, fig_long 
+    
 
 ################################################## Group-Specific Analysis ##################################################
 

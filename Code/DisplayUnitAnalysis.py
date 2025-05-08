@@ -71,6 +71,14 @@ def main(unit_params, group_labels):
         print('Example_Unit_Responsiveness Completed')
         plt.close('all')
     
+    if unit_params.Single_Units:
+        fig_short, fig_long = unit_analysis.Draw_Single_Units()
+        sub_file_path = check_path(imagepath + 'ExampleUnit/')
+        SaveFig(fig_short, sub_file_path + 'ShortGap')
+        SaveFig(fig_long, sub_file_path + 'LongGap')
+        print('Single_Units Completed')
+        plt.close('all')
+    
     if unit_params.All_Unit_Response_Type:
         fig = unit_analysis.Draw_Unit_Response_Type_All_Group(Groups)
         sub_file_path = check_path(imagepath + 'AllGroup/')

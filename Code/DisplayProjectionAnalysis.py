@@ -111,15 +111,15 @@ def Display_Group(params, Group, label, file_path = '../Images/Subspace/'):
         print('Predict_Off_using_Low_Dim_Activity Completed')
         plt.close('all')
         
-def main(subspace_params, group_labels):
+def main(projection_params, group_labels):
 
     Groups, Labels = Load_Groups(group_labels)
     for label in Labels:
         print(f'Start Analysing {label}')
-        Display_Group(subspace_params, Groups[label], label, file_path = imagepath)
+        Display_Group(projection_params, Groups[label], label, file_path = imagepath)
         print('\n')
         
-    if subspace_params.Analysis_Explanation:
+    if projection_params.Analysis_Explanation:
         with open(grouppath  + 'WT_NonHL' + '.pickle', 'rb') as file:
             Group = pickle.load(file)
         fig_computation, fig_histogram, fig_JS_divergence = projection_analysis.Draw_Analysis_Explanation(Group)
@@ -130,6 +130,18 @@ def main(subspace_params, group_labels):
         
         print('Analysis_Explanation Completed')
         plt.close('all')
-            
+        
+    if projection_params.Period_Selection_Explanation:
+        with open(grouppath  + 'WT_NonHL' + '.pickle', 'rb') as file:
+            Group = pickle.load(file)
+        
+        fig = projection_analysis.Draw_Period_Selection_Explanation(Group)
+        sub_file_path = check_path(imagepath)
+        SaveFig(fig, sub_file_path + 'Period_Length_Explanation')
+        
+        print('Period_Selection_Explanation Completed')
+        plt.close('all')
+        
+    
 if __name__ == "__main__":
     main()

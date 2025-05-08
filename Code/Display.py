@@ -14,12 +14,14 @@ warnings.filterwarnings("ignore", message="The PostScript backend does not suppo
 @dataclass
 class UnitParams:
     Example_Unit_Responsiveness: bool = False
+    Single_Units: bool = False
     All_Unit_Response_Type: bool = False
     All_Unit_Spike_Type: bool = False
     Responsiveness_Comparison: bool = False
  
 @dataclass
 class ProjectionParams:
+    Period_Selection_Explanation: bool = False
     Analysis_Explanation: bool = False
     Dimensionality_Reduction: bool = False
     Low_Dim_Activity_by_Space: bool = False
@@ -43,22 +45,22 @@ class SubspaceParams:
 def main():
 
     projection_params = ProjectionParams(
-        Analysis_Explanation = True
+        Period_Selection_Explanation = True
 
     )
     #DisplayProjectionAnalysis.main(projection_params, group_labels = ['WT_NonHL', 'WT_HL', 'Df1_NonHL', 'Df1_HL'])
+    #DisplayProjectionAnalysis.main(projection_params, group_labels = ['WT_NonHL'])
 
     subspace_params = SubspaceParams(
-        Subspace_Comparison_per_Gap = True
+        Analysis_Comparison = True
     )
     #DisplaySubspaceAnalysis.main(subspace_params, group_labels = ['WT_NonHL', 'WT_HL', 'Df1_NonHL', 'Df1_HL'])
-    DisplaySubspaceAnalysis.main(subspace_params, group_labels = ['WT_NonHL'])
+    #DisplaySubspaceAnalysis.main(subspace_params, group_labels = ['WT_NonHL'])
 
     unit_params = UnitParams(
-        Example_Unit_Responsiveness = True,
-        All_Unit_Response_Type = True
+        Single_Units=True
     )
-    #DisplayUnitAnalysis.main(unit_params, group_labels = ['WT_NonHL', 'WT_HL', 'Df1_NonHL', 'Df1_HL'])
+    DisplayUnitAnalysis.main(unit_params, group_labels = ['WT_NonHL', 'WT_HL', 'Df1_NonHL', 'Df1_HL'])
 
 if __name__ == "__main__":
     main()
