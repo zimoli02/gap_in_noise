@@ -478,8 +478,8 @@ def Low_Dim_Activity_by_Space(Group, short_gap = 3, long_gap = 9):
         
         axs.bar(np.arange(min_bin, max_bin, width), hist_on, color = space_colors['on'], width = width, alpha = 0.5, label = 'Onset')
         axs.bar(np.arange(min_bin, max_bin, width), hist_off, color = space_colors['off'], width = width, alpha = 0.5, label = 'Offset')
-        axs.bar(np.arange(min_bin, max_bin, width), hist_noise, color = space_colors['sustainednoise'], width = width, alpha = 0.5, label = 'Sustained Noise')
-        axs.bar(np.arange(min_bin, max_bin, width), hist_silence, color = space_colors['sustainedsilence'], width = width, alpha = 0.5, label = 'Sustained Silence')
+        axs.bar(np.arange(min_bin, max_bin, width), hist_noise, color = space_colors['sustainednoise'], width = width, alpha = 0.5, label = 'S. Noise')
+        axs.bar(np.arange(min_bin, max_bin, width), hist_silence, color = space_colors['sustainedsilence'], width = width, alpha = 0.5, label = 'S. Silence')
         
         return axs
     
@@ -500,11 +500,11 @@ def Low_Dim_Activity_by_Space(Group, short_gap = 3, long_gap = 9):
         gap_dur1, gap_dur2 = round(gaps[gap_indices[0]]*1000), round(gaps[gap_indices[1]]*1000)        
         axs[0,0].set_title(f'Gap = {gap_dur1}ms', fontsize = sub_title_size)
         axs[0,1].set_title(f'Gap = {gap_dur2}ms', fontsize = sub_title_size)
-        axs[0,0].legend(loc = 'upper left', fontsize = legend_size)
-        axs[0,1].legend(loc = 'upper left', fontsize = legend_size)
+        axs[0,0].legend(loc = 'upper left', fontsize = legend_size+4)
+        axs[0,1].legend(loc = 'upper left', fontsize = legend_size+4)
         axs[3, 0].set_xlabel('Projection to PC', fontsize = label_size)
         axs[3, 1].set_xlabel('Projection to PC', fontsize = label_size)
-        fig.suptitle('Response Distribution in Different Periods', fontsize = title_size, fontweight = 'bold')
+        fig.suptitle('Distributions of Projections from Different Periods', fontsize = title_size, fontweight = 'bold')
         return fig
     
     gaps = Group.gaps
@@ -550,7 +550,7 @@ def Low_Dim_Activity_Divergence_by_Space(Group, short_gap = 3, long_gap = 9):
         axs[1].set_title(f'Gap = {gap_dur1}ms\nProjection to PC2', fontsize = sub_title_size)
         axs[2].set_title(f'Gap = {gap_dur2}ms\nProjection to PC1', fontsize = sub_title_size)
         axs[3].set_title(f'Gap = {gap_dur2}ms\nProjection to PC2', fontsize = sub_title_size)
-        fig.suptitle('J-S Divergence between Response Projection in Different Periods', fontsize = title_size, fontweight = 'bold', y=1.05)
+        fig.suptitle('J-S Divergence between Distributions of Projections from Different Periods', fontsize = title_size, fontweight = 'bold', y=1.05)
         return fig
 
     def Print_Data(PC = 0):
@@ -642,7 +642,7 @@ def Low_Dim_Activity_in_Different_Space(Group, short_gap = 3, long_gap = 9, spac
         axs[1].set_title(f'Gap = {gap_dur1}ms, Project to PC2', fontsize = sub_title_size)
         axs[2].set_title(f'Gap = {gap_dur2}ms, Project to PC1', fontsize = sub_title_size)
         axs[3].set_title(f'Gap = {gap_dur2}ms, Project to PC2', fontsize = sub_title_size)
-        fig.suptitle('J-S Divergence between Response Projection', fontsize = title_size, fontweight = 'bold', y=0.95)
+        fig.suptitle('J-S Divergence between Projection Distributions', fontsize = title_size, fontweight = 'bold', y=0.95)
         return fig
     
     def Print_Data(PC = 0):

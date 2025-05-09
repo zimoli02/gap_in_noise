@@ -684,7 +684,7 @@ def Compare_Method_Efficiency(Group, methods, space_names):
             axs[i].set_xticks([0.5, 1.5, 2.5, 3.5], ['On', 'Off', 'S.Noi.', 'S.Sil.'], fontsize = tick_size)
             axs[i].set_yticks([0.5, 1.5, 2.5, 3.5], ['On', 'Off', 'S.Noi.', 'S.Sil.'], fontsize = tick_size)
             axs[i].set_title(Comparison_Method_Abbr_Title(method), fontsize = sub_title_size)
-        fig.suptitle('J-S Divergence between Multi-Dim. Representations: Covariance Alignment', fontsize = title_size, fontweight = 'bold')
+        fig.suptitle('J-S Divergence between Multi-Dim. Representations: Covariance-based', fontsize = title_size, fontweight = 'bold')
         return means, fig
     
     def Draw_JS_Matrix_MulD_Projection_Summary():
@@ -739,7 +739,7 @@ def Compare_Method_Efficiency(Group, methods, space_names):
             axs[i].set_xticks([0.5, 1.5, 2.5, 3.5], ['On', 'Off', 'S.Noi.', 'S.Sil.'], fontsize = tick_size)
             axs[i].set_yticks([0.5, 1.5, 2.5, 3.5], ['On', 'Off', 'S.Noi.', 'S.Sil.'], fontsize = tick_size)
             axs[i].set_title(f'{space_name}-space', fontsize = sub_title_size)
-        fig.suptitle('J-S Divergence between Multi-Dim. Representations: PC Projections', fontsize = title_size, fontweight = 'bold')
+        fig.suptitle('J-S Divergence between Multi-Dim. Representations: Projection-based', fontsize = title_size, fontweight = 'bold')
         return means, fig
         
     def Draw_Encoding_Method_Comparison():

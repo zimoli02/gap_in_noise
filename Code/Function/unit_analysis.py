@@ -185,7 +185,7 @@ def Draw_Single_Units():
         #psth = neuron_data[gap_idx, :].reshape(200, -1).sum(axis=1)/5
         psth = neuron_data[gap_idx, :]
         
-        axs.bar(np.arange(100), psth[:100], width=0.8, color = 'grey', edgecolor='none')
+        '''axs.bar(np.arange(100), psth[:100], width=0.8, color = 'grey', edgecolor='none')
             
         axs.bar(np.arange(100, 200, 1), psth[100:200], width=2.0, color = response_colors[unit_type], edgecolor='none')
         axs.bar(np.arange(200, 360, 1), psth[200:360], width=2.0, color = 'grey', edgecolor='none')
@@ -199,9 +199,13 @@ def Draw_Single_Units():
         axs.bar(np.arange(350+gap_dur, 450+gap_dur, 1), psth[350+gap_dur:450+gap_dur], width=2.0, color = response_colors[unit_type], edgecolor='none')
         axs.bar(np.arange(450+gap_dur, 460+gap_dur, 1), psth[450+gap_dur:460+gap_dur], width=2.0, color = 'grey', edgecolor='none')
         axs.bar(np.arange(460+gap_dur, 560+gap_dur, 1), psth[460+gap_dur:560+gap_dur], width=2.0, color = response_colors[unit_type], edgecolor='none')
-        axs.bar(np.arange(560+gap_dur, 1000, 1), psth[560+gap_dur:1000], width=2.0, color = 'grey', edgecolor='none')
+        axs.bar(np.arange(560+gap_dur, 1000, 1), psth[560+gap_dur:1000], width=2.0, color = 'grey', edgecolor='none')'''
         
-        
+        axs.bar(np.arange(1000), psth, width=0.8, color = response_colors[unit_type], edgecolor='none')
+        axs.axvline(100, color = 'green', linewidth = 5, linestyle = '--')
+        axs.axvline(350+gap_dur, color = 'green', linewidth = 5, linestyle = '--')
+        axs.axvline(350+10, color = 'blue', linewidth = 5, linestyle = '--')
+        axs.axvline(450 + gap_dur+10, color = 'blue', linewidth = 5, linestyle = '--')
         
         for i in range(2):
             axs.set_xticks([])
