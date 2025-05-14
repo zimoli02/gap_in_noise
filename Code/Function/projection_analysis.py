@@ -330,7 +330,7 @@ def Low_Dim_Activity(Group):
         return fig 
     
     def Draw_Projection(PC):
-        fig, axs = plt.subplots(ncols=len(PC), sharex=True, figsize=(20, 20))
+        fig, axs = plt.subplots(ncols=len(PC), sharex=True, figsize=(20.47, 20.47))
         for j in range(len(PC)):
             scores = Group.pca.score_per_gap[PC[j]]
             for i in range(10):
@@ -484,7 +484,7 @@ def Low_Dim_Activity_by_Space(Group, short_gap = 3, long_gap = 9):
         return axs
     
     def Draw_Histogram():
-        fig, axs = plt.subplots(4, 2, figsize = (20, 20), sharex=False)
+        fig, axs = plt.subplots(4, 2, figsize = (20.47, 20.47), sharex=False)
 
         width = 10
         for i in range(len(gap_indices)):
@@ -515,7 +515,7 @@ def Low_Dim_Activity_by_Space(Group, short_gap = 3, long_gap = 9):
     
 def Low_Dim_Activity_Divergence_by_Space(Group, short_gap = 3, long_gap = 9):
     def Draw_JS_Matrices():
-        fig, axs = plt.subplots(1, 4, figsize = (40, 10))
+        fig, axs = plt.subplots(1, 4, figsize = (41.4, 10))
 
         width = 10
         tick_size = 32
@@ -583,7 +583,7 @@ def Low_Dim_Activity_Divergence_by_Space(Group, short_gap = 3, long_gap = 9):
     
 def Low_Dim_Activity_in_Different_Space(Group, short_gap = 3, long_gap = 9, space_name = 'On', period_length = 100, offset_delay = 10):
     def Draw_Projection():
-        fig, axs = plt.subplots(ncols=len(PC), sharex=True, figsize=(20, 20))
+        fig, axs = plt.subplots(ncols=len(PC), sharex=True, figsize=(20.47, 20.47))
         for j in range(len(PC)):
             for i in range(10):
                 score_per_gap = (space_data_loading @ Group.pop_response_stand[:, i, :])[PC[j]]
@@ -609,7 +609,7 @@ def Low_Dim_Activity_in_Different_Space(Group, short_gap = 3, long_gap = 9, spac
         return fig
     
     def Draw_Divergence():
-        fig, axs = plt.subplots(2, 2, figsize = (20, 20))
+        fig, axs = plt.subplots(2, 2, figsize = (20.47, 20.47))
         axs = axs.flatten()
         for i in range(len(gap_indices)):
             gap_idx = gap_indices[i]

@@ -215,7 +215,7 @@ def add_significance_bar(ax, x1, x2, y, p):
         ax.text((x1+x2)/2, y+h - text_space, '*', ha='center', va='bottom', size = 32)
 
 def Comparison_Method_Full_Title(method):
-    if method == 'Pairwise': return 'Pairwise Cosine Alignment'
+    if method == 'Pairwise': return 'Pairwise Cosine Similarity'
     if method == 'CCA': return 'Principal Angle'
     if method == 'RV': return 'RV Coefficient'
     if method == 'Trace': return 'Covariance Alignment'
@@ -270,8 +270,8 @@ def Draw_Standard_Subspace_Location(Group, subspace_name, period_length = 50, of
     axs.tick_params(axis='both', labelsize = tick_size)
     axs.set_xlabel('Time (ms)', fontsize = label_size)
     axs.set_ylabel('(dB)', fontsize = label_size)
-    axs.annotate('Noise 1+2', xy=(190, 62), fontsize=40, color='black')
-    axs.set_title(f'Standard {Subspace_Name_Abbr_Title(subspace_name)}-Space', fontsize = title_size, fontweight = 'bold', y = 1.15)
+    axs.annotate('Noise 1+2', xy=(110, 62), fontsize=40, color='black')
+    fig.suptitle(f'Standard {Subspace_Name_Abbr_Title(subspace_name)}-Space', fontsize = title_size-4, fontweight = 'bold', y = 1.2)
 
     return fig
 
@@ -299,7 +299,7 @@ def Subspace_Comparison_Simulation(n_observation, n_feature):
     
     def Draw_Compare_Subspace_Similarity(Matrices, method):
         Similarity_Index = Compare_Subspace_Similarity(Matrices, method = method)
-        figtitle = Comparison_Method_Full_Title(method)
+        figtitle = Comparison_Method_Abbr_Title(method)
         
         fig, axs = plt.subplots(1, 1, figsize=(12, 10))
         heatmap = sns.heatmap(Similarity_Index, ax = axs, cmap = 'YlGnBu', vmin = 0, vmax = 1, square=True, cbar = True)
@@ -316,10 +316,10 @@ def Subspace_Comparison_Simulation(n_observation, n_feature):
         labels = ['Matrix1', 'Matrix2', 'Matrix3', 'Matrix4']
         label_positions = [0.5, 1.5, 2.5, 3.5]
         axs.set_xticks(label_positions)
-        axs.set_xticklabels(labels, rotation=0, fontsize=30)
+        axs.set_xticklabels(labels, rotation=0, fontsize=38)
         axs.set_yticks(label_positions)
-        axs.set_yticklabels(labels, rotation=0, fontsize=30)
-        fig.suptitle(figtitle, fontsize = 40, fontweight='bold')
+        axs.set_yticklabels(labels, rotation=0, fontsize=38)
+        fig.suptitle(figtitle, fontsize = title_size, fontweight='bold')
         plt.tight_layout()
         return fig
             
@@ -361,16 +361,16 @@ def Standard_Subspace_Comparison(Group, subspace_name, period_length = 50, offse
         print(f'Average Similarity Index for {subspace_name} = {np.mean(off_diagonal_elements)} ({method})')
 
         cbar = heatmap.collections[0].colorbar
-        cbar.ax.tick_params(labelsize=30)
+        cbar.ax.tick_params(labelsize=24)
         cbar.ax.set_yticks([0,0.5,1.0])
 
         axs.set_aspect('auto')
-        labels = [f'#{i}' for i in range(1, 11, 1)]
+        labels = [f'{i}' for i in range(1, 11, 1)]
         label_positions = [i + 0.5 for i in range(10)]
         axs.set_xticks(label_positions)
-        axs.set_xticklabels(labels, rotation=0, fontsize=28)
+        axs.set_xticklabels(labels, rotation=0, fontsize=24)
         axs.set_yticks(label_positions)
-        axs.set_yticklabels(labels, rotation=0, fontsize=28)
+        axs.set_yticklabels(labels, rotation=0, fontsize=24)
 
         return axs
     
@@ -402,16 +402,16 @@ def Standard_Subspace_Comparison(Group, subspace_name, period_length = 50, offse
 
         axs.set_yticks([0, 0.5, 1], labels = [0, 0.5, 1])
         axs.set_xticks([0, 1, 2, 3, 4], labels = ['Orig.', 'Shuffle_Neuron', 'Add_Neuron', 'Add_Noise', 'Rotate'], rotation = 45, ha = 'right')
-        axs.tick_params(axis='both', labelsize=28)
+        axs.tick_params(axis='both', labelsize=24)
         axs.set_ylim(0, 1.33)
         
         return axs
         
     def Draw_Compare_Subspace_Similarity(periods, subspace_name, method):
-        fig, axs = plt.subplots(1, 2, figsize = (20.47, 10), gridspec_kw={'width_ratios': [3,2]})
+        fig, axs = plt.subplots(1, 2, figsize = (10, 5), gridspec_kw={'width_ratios': [3,2]})
         axs[0] = Draw_Compare_Subspace_Similarity_Result(axs[0], periods, subspace_name, method)
         axs[1] = Draw_Compare_Subspace_Similarity_Result_Test(axs[1], periods, subspace_name, method)
-        fig.suptitle(f'{Subspace_Name_Abbr_Title(subspace_name)} Space: {Comparison_Method_Abbr_Title(method)}', fontsize = title_size, fontweight = 'bold')
+        fig.suptitle(f'{Subspace_Name_Abbr_Title(subspace_name)} Space: {Comparison_Method_Abbr_Title(method)}', fontsize = title_size-4, fontweight = 'bold',y = 1.05)
         return fig
 
     periods = Get_Data_Periods(subspace_name)
@@ -460,7 +460,7 @@ def Subspace_Similarity_for_All_Gaps(Group, subspace_name, methods, standard_per
        
     def Draw_Similarity_Index_for_All_Gap(Similarity_Index_for_All_Gap):
         example_gaps = [0,4,9]
-        fig, axs = plt.subplots(3, 1, figsize=(10, 15))  
+        fig, axs = plt.subplots(3, 1, figsize=(20, 15))  
         for i in range(3):
             gap_idx = example_gaps[i]
             Similarity_Indices = Similarity_Index_for_All_Gap[gap_idx]
@@ -482,19 +482,19 @@ def Subspace_Similarity_for_All_Gaps(Group, subspace_name, methods, standard_per
         axs[2].set_xlabel('Time (ms)', fontsize = label_size)
         
 
-        fig.suptitle(title + ' over Time', fontsize = title_size, fontweight = 'bold', y=0.95)
+        fig.suptitle(title, fontsize = title_size, fontweight = 'bold', y=0.95)
         
         lines, labels = [], []
         for method in methods:
             line = Line2D([0], [0], color=method_colors[method], lw=6, alpha = 0.9)
             lines.append(line)
             labels.append(Comparison_Method_Abbr_Title(method))
-        legend = fig.legend(lines, labels, loc='upper right', bbox_to_anchor=(0.9, 0.88), ncol=1, fontsize=32)
+        legend = axs[0].legend(lines, labels, loc='upper right', ncol=1, fontsize=32, frameon=True)
         legend.get_frame().set_facecolor('white')  # White background
         legend.get_frame().set_alpha(1.0)         # Fully opaque
         legend.get_frame().set_linewidth(1.5)     # Add border
         legend.get_frame().set_edgecolor('black') # Black border
-        
+        legend.set_zorder(10)
         return fig
     
     def Justify_the_Separation_Level_for_each_Space_each_Method():
@@ -540,7 +540,7 @@ def Subspace_Similarity_for_All_Gaps(Group, subspace_name, methods, standard_per
             data = pickle.load(f)
         print('Data Existed!')
             
-        fig, axs = plt.subplots(2, 2, figsize = (15, 15))
+        fig, axs = plt.subplots(1, 4, figsize = (30, 8))
         axs = axs.flatten()
         for j in range(len(methods)):
             method = methods[j]
@@ -564,7 +564,7 @@ def Subspace_Similarity_for_All_Gaps(Group, subspace_name, methods, standard_per
             axs[j] = Draw_JS_Divergence_Matrix(axs[j], JS_Matrix)
             axs[j].set_title(Comparison_Method_Abbr_Title(method), fontsize = sub_title_size)
 
-        fig.suptitle(f'J-S Div. of ' + title, fontsize = title_size, fontweight = 'bold', y=1) 
+        fig.suptitle(f'J-S Div. of ' + title, fontsize = title_size, fontweight = 'bold', y=1.05) 
         return fig
     
     label = Group.geno_type + '_' + Group.hearing_type
@@ -756,9 +756,9 @@ def Compare_Method_Efficiency(Group, methods, space_names):
             encoding_methods.append(methods[i])
         axs.set_xticks(np.arange(len(space_names) + len(methods)), encoding_methods, fontsize = tick_size-4, rotation = 45, ha = 'right')
         axs.set_yticks([0,1,2],[0,1,2], fontsize = tick_size)
-        axs.set_ylabel('Average J-S Divergence', fontsize = label_size)
+        axs.set_ylabel('Average Divergence Index', fontsize = label_size)
         axs.set_xlabel('Encoding Methods', fontsize = label_size)
-        fig.suptitle('Average J-S Divergence\nfor Multi-Dim. Representations', fontsize = title_size, fontweight = 'bold')
+        fig.suptitle('Average Divergence\nfor Multi-Dim. Representations', fontsize = title_size, fontweight = 'bold')
         return fig
 
     label = Group.geno_type + '_' + Group.hearing_type
@@ -1451,10 +1451,10 @@ def Subspace_Comparison_All_Group_Property_Multiple_Timewindows(Groups, method):
         fig2, axs2 = plt.subplots(1, 1, figsize=(10, 10)) 
         thresholds_data = [value for _, value in thresholds.items()]
         axs2 = Draw_Violin_Plot(axs2, thresholds_data)
-        axs2.set_yticks([0, 8, 16, 24, 32, 40], labels = [0, 8, 16, 24, 32, 40])
+        axs2.set_yticks([0, 16, 32, 48, 64], labels = [0, 16, 32, 48, 64])
         axs2.set_xticks([0,1,2,3], ['WT\nNonHL', 'WT\nHL', '$\mathit{Df1}$/+\nNonHL', '$\mathit{Df1}$/+\nHL'])
         axs2.tick_params(axis='both', labelsize=28)
-        axs2.set_ylim(0, 41)
+        axs2.set_ylim(0, 65)
         axs2.set_ylabel('Gap Duration (ms)', fontsize = 34)
         axs2.set_title('Threshold', fontsize = 44)
         
