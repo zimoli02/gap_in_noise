@@ -3,6 +3,7 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 
+from scipy import ndimage
 from scipy.ndimage import gaussian_filter1d
 from sklearn.linear_model import LogisticRegression
 from sklearn.kernel_ridge import KernelRidge
@@ -170,14 +171,16 @@ def Draw_Analysis_Explanation(Group, gap_idx = 9):
         pre_N1 = np.random.normal(loc=1, scale=1.5, size=100)
         N1_Onset = np.random.normal(loc=10, scale=1, size=100)
         N1_Sustained = np.random.normal(loc=3, scale=1.5, size=150)
-        N1_Offset = np.random.normal(loc=6, scale=1, size=100)
+        N1_Offset = np.random.normal(loc=-6, scale=1, size=100)
         Gap_Sustained = np.random.normal(loc=1, scale=1.5, size=156)
         N2_Onset = np.random.normal(loc=10, scale=1, size=100)
-        N2_Offset = np.random.normal(loc=6, scale=1, size=100)
+        N2_Offset = np.random.normal(loc=-6, scale=1, size=100)
         post_N2 = np.random.normal(loc=1, scale=1.5, size=194)
     
         ft = np.concatenate((pre_N1, N1_Onset, N1_Sustained, N1_Offset, Gap_Sustained, N2_Onset, N2_Offset, post_N2))
-        return ft
+        window_size = 5
+        ft_smooth = np.convolve(ft, np.ones(window_size)/window_size, mode='same')      
+        return ft_smooth
     
     def Draw_ft_Computation():
         sound_cond = Group.gaps_label[gap_idx]
