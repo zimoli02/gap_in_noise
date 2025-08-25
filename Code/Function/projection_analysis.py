@@ -165,7 +165,6 @@ def Draw_Period_Selection_Explanation(Group, gap_idx = 0):
     
     return fig
 
-
 def Draw_Analysis_Explanation(Group, gap_idx = 9):
     def Simulate_ft():
         pre_N1 = np.random.normal(loc=1, scale=1.5, size=100)
@@ -305,8 +304,8 @@ def Draw_Analysis_Explanation(Group, gap_idx = 9):
         formatted_annotations = [[format_number(val) for val in row] for row in JS_matrix]
         sns.heatmap(JS_matrix, ax = axs, cmap = 'YlGnBu', square = True, cbar = False, vmin = 0, vmax = 1, 
                     annot=formatted_annotations, annot_kws={'size': tick_size})
-        axs.set_xticks([0.5, 1.5, 2.5, 3.5], ['On', 'Off', 'S.Noi.', 'S.Sil.'], fontsize = tick_size)
-        axs.set_yticks([0.5, 1.5, 2.5, 3.5], ['On', 'Off', 'S.Noi.', 'S.Sil.'], fontsize = tick_size)
+        axs.set_xticks([0.5, 1.5, 2.5, 3.5], ['Onset', 'Offset', 'S.Noi.', 'S.Sil.'], fontsize = tick_size)
+        axs.set_yticks([0.5, 1.5, 2.5, 3.5], ['Onset', 'Offset', 'S.Noi.', 'S.Sil.'], fontsize = tick_size)
         fig.suptitle('$R(t)$ J-S Divergence', fontsize = title_size, fontweight = 'bold', y=0.95)
         return fig
         
@@ -546,8 +545,8 @@ def Low_Dim_Activity_Divergence_by_Space(Group, short_gap = 3, long_gap = 9):
                         annot=formatted_annotations, annot_kws={'size': tick_size})
 
         for i in range(4):
-            axs[i].set_xticks([0.5, 1.5, 2.5, 3.5], ['On', 'Off', 'S.Noi.', 'S.Sil.'], fontsize = tick_size)
-            axs[i].set_yticks([0.5, 1.5, 2.5, 3.5], ['On', 'Off', 'S.Noi.', 'S.Sil.'], fontsize = tick_size)
+            axs[i].set_xticks([0.5, 1.5, 2.5, 3.5], ['Onset', 'Offset', 'S.Noi.', 'S.Sil.'], fontsize = tick_size)
+            axs[i].set_yticks([0.5, 1.5, 2.5, 3.5], ['Onset', 'Offset', 'S.Noi.', 'S.Sil.'], fontsize = tick_size)
         gap_dur1, gap_dur2 = round(gaps[gap_indices[0]]*1000), round(gaps[gap_indices[1]]*1000)        
         axs[0].set_title(f'Gap = {gap_dur1}ms\nProjection to PC1', fontsize = sub_title_size)
         axs[1].set_title(f'Gap = {gap_dur1}ms\nProjection to PC2', fontsize = sub_title_size)

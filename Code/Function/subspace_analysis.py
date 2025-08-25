@@ -736,8 +736,8 @@ def Compare_Method_Efficiency(Group, methods, space_names):
             formatted_annotations = [[format_number(val) for val in row] for row in JS_matrix]
             sns.heatmap(JS_matrix, ax = axs[i], cmap = 'YlGnBu', square = True, cbar = False, vmin = 0, vmax = 5,
                     annot=formatted_annotations, annot_kws={'size': tick_size})
-            axs[i].set_xticks([0.5, 1.5, 2.5, 3.5], ['On', 'Off', 'S.Noi.', 'S.Sil.'], fontsize = tick_size)
-            axs[i].set_yticks([0.5, 1.5, 2.5, 3.5], ['On', 'Off', 'S.Noi.', 'S.Sil.'], fontsize = tick_size)
+            axs[i].set_xticks([0.5, 1.5, 2.5, 3.5], ['Onset', 'Offset', 'S.Noi.', 'S.Sil.'], fontsize = tick_size)
+            axs[i].set_yticks([0.5, 1.5, 2.5, 3.5], ['Onset', 'Offset', 'S.Noi.', 'S.Sil.'], fontsize = tick_size)
             axs[i].set_title(f'{space_name}-space', fontsize = sub_title_size)
         fig.suptitle('J-S Divergence between Multi-Dim. Representations: Projection-based', fontsize = title_size, fontweight = 'bold')
         return means, fig
@@ -1189,9 +1189,11 @@ def Subspace_Similarity_for_All_Gaps_Property(Group, method, optimised_param = T
             
             if subspace_name == 'On':
                 start, end = 250 + gap_dur, 250 + gap_dur + plot_length
+                title = 'End'
             # + gap_dur
             if subspace_name == 'Off':
                 start, end = 250, 250 + plot_length
+                title = 'Start'
                 
             axs.plot(np.arange(plot_length), Similarity_Index[start:end], color = colors[gap_idx], linewidth = 6)
             peak_values.append(np.max(Similarity_Index[start:end]))
@@ -1201,7 +1203,7 @@ def Subspace_Similarity_for_All_Gaps_Property(Group, method, optimised_param = T
         axs.set_yticks([0,1], labels = [0,1])
         axs.tick_params(axis = 'both', labelsize = tick_size)
         axs.set_ylabel(representation_title, fontsize = label_size)
-        axs.set_xlabel(f'Gap-Related {subspace_name}set (ms)', fontsize = label_size)
+        axs.set_xlabel(f'Time Aft. Gap {title} (ms)', fontsize = label_size)
         
         # Create the colorbar
         cmap = mpl.colors.ListedColormap(colors[:10])  # Use only the first 10 colors
@@ -1221,9 +1223,9 @@ def Subspace_Similarity_for_All_Gaps_Property(Group, method, optimised_param = T
         
         
         fig2, axs = plt.subplots(1, 1, figsize=(10, 10))  
-        for gap_idx in range(1, 10):
+        for gap_idx in range(0, 10):
             axs.scatter(gap_idx, peak_values[gap_idx], color = colors[gap_idx], s = 400)
-        axs.plot(np.arange(1, 10), peak_values[1:], color = space_colors[subspace_name[0].lower() + subspace_name[1:]], linewidth = 5)
+        axs.plot(np.arange(0, 10), peak_values[0:], color = space_colors[subspace_name[0].lower() + subspace_name[1:]], linewidth = 5)
         
         axs.set_xticks([1, 3, 5, 7, 9], labels = ['2$^0$', '2$^2$', '2$^4$', '2$^6$', '2$^8$'])
         axs.set_yticks([0,1], labels = [0, 1])
@@ -1247,6 +1249,7 @@ def Subspace_Similarity_for_All_Gaps_Property(Group, method, optimised_param = T
         with open(file_path + f'{label}.pkl', 'rb') as f:
             data = pickle.load(f)
         On_Similarities = np.array([data[i][method] for i in range(10)])  
+        
         file_path = check_path(subspacepath + f'SubspaceEvolution/Off/')
         with open(file_path + f'{label}.pkl', 'rb') as f:
             data = pickle.load(f)
@@ -1282,7 +1285,7 @@ def Subspace_Comparison_All_Group_Property(Groups, method, optimised_param = Tru
                 start, end = 250 + gap_dur, 250 + gap_dur + 100 
                 Similarity_Index = On_Similarities[gap_idx]
                 peak_values.append(np.max(Similarity_Index[start:end]))
-                axs.scatter(gap_idx, peak_values[gap_idx], color = space_colors_per_gap['on'][gap_idx], s = 400)
+                #axs.scatter(gap_idx, peak_values[gap_idx], color = space_colors_per_gap['on'][gap_idx], s = 400)
             axs.plot(np.arange(10), peak_values, color = group_colors[label], linewidth = 5, label = label)
         
         axs.legend(loc = 'upper left', fontsize = 28)
@@ -1316,7 +1319,7 @@ def Subspace_Comparison_All_Group_Property(Groups, method, optimised_param = Tru
                 start, end = 250, 250 + 100 
                 Similarity_Index = Off_Similarities[gap_idx]
                 peak_values.append(np.max(Similarity_Index[start:end]))
-                axs.scatter(gap_idx, peak_values[gap_idx], color = space_colors_per_gap['off'][gap_idx], s = 400)
+                #axs.scatter(gap_idx, peak_values[gap_idx], color = space_colors_per_gap['off'][gap_idx], s = 400)
                 axs_.scatter(gap_idx, peak_values[gap_idx], color = space_colors_per_gap['off'][gap_idx], s = 400)
             axs.plot(np.arange(10), peak_values, color = group_colors[label], linewidth = 5, label = label)
             

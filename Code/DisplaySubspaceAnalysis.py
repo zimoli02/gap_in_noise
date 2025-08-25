@@ -84,8 +84,8 @@ def Display_Group(params, Group, Label, file_path = '../Images/'):
         plt.close('all')
 
     if params.Subspace_Comparison_per_Gap:
-        methods = ['Pairwise', 'CCA', 'RV', 'Trace']
-        #methods = ['Trace']
+        #methods = ['Pairwise', 'CCA', 'RV', 'Trace']
+        methods = ['Trace']
         for subspace_name in ['On', 'Off', 'SustainedNoise', 'SustainedSilence']:
             sub_file_path = check_path(file_path + '/SubspaceEvolution/' + subspace_name + '/' + Label + '/')
             fig, fig_Justification = subspace_analysis.Subspace_Similarity_for_All_Gaps(Group, subspace_name, methods, standard_period_length=50, period_length=50, offset_delay = 10)

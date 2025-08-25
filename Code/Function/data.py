@@ -135,7 +135,7 @@ class Recording:
         self.sorting = None
         self.gap_onset = None
         self.gaps = [0., 0.001, 0.002, 0.004, 0.008, 0.016, 0.032, 0.064, 0.128, 0.256]
-        self.Get_Info()
+        self.Get_Info() 
         
         self.unit_type = None
         self.bkg_psth = None
