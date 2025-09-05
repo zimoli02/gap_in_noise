@@ -19,7 +19,7 @@ from . import analysis
 
 basepath = '/Volumes/Zimo/Auditory/Data/'
 recordingpath = '/Volumes/Research/GapInNoise/Data/Recordings/'
-mouse = pd.read_csv('/Volumes/Research/GapInNoise/Code/Mouse_Tones.csv')
+mouse = pd.read_csv('/Volumes/Research/GapInNoise/Code/Mouse_Info_All.csv')
 
 
 class Group:
@@ -45,9 +45,9 @@ class Group:
     
     def Get_Group_Recording(self):
         if self.hearing_type == 'NonHL':
-            return mouse[(mouse['Geno']==self.geno_type)&(mouse['L_Thres']<42)]['Recording'].values
+            return mouse[(mouse['Geno']==self.geno_type)&(mouse['L_thres']<42)]['Recording'].values
         else:
-            return mouse[(mouse['Geno']==self.geno_type)&(mouse['L_Thres']>42)]['Recording'].values
+            return mouse[(mouse['Geno']==self.geno_type)&(mouse['L_thres']>42)]['Recording'].values
     
     def Get_Gaps_Label(self):
         def Create_Sound_Cond(gap_duration):
@@ -77,8 +77,8 @@ class Group:
                 recording = Recording(Exp_name)
             response_per_recording[Exp_name] = recording
             self.unit_type = np.concatenate((self.unit_type, recording.unit_type))
-            self.unit_id = np.concatenate((self.unit_id, recording.unit_id))
-        self.unit_id = self.unit_id[1:]
+            #self.unit_id = np.concatenate((self.unit_id, recording.unit_id))
+        #self.unit_id = self.unit_id[1:]
         return response_per_recording
     
     def Get_Pop_Spikes(self):
@@ -126,7 +126,7 @@ class Group:
 class Recording:
     def __init__(self, rec_name):
         self.rec_name = rec_name
-        self.geno_type = mouse[mouse['Recording'] == rec_name]['Geno'].to_numpy()[0]
+        self.geno_type = mouse[mouse['Recording'] == self.rec_name]['Geno'].to_numpy()[0]
         self.hearing_type = None
         self.hearing_threshold = None
         
@@ -145,12 +145,13 @@ class Recording:
         self.pop_response = self.Get_Pop_Response()
         
         self.Save_File()
-         
+
+        
     def Get_Info(self):
-        if mouse[mouse['Recording'] == self.rec_name]['L_Thres'].to_numpy()[0] > 42: self.hearing_type = 'HL'
+        if mouse[mouse['Recording'] == self.rec_name]['L_thres'].to_numpy()[0] > 42: self.hearing_type = 'HL'
         else: self.hearing_type = 'NonHL'
-        self.hearing_threshold = (mouse[mouse['Recording'] == self.rec_name]['L_Thres'].to_numpy()[0] 
-                                  + mouse[mouse['Recording'] == self.rec_name]['R_Thres'].to_numpy()[0])/2
+        self.hearing_threshold = min(mouse[mouse['Recording'] == self.rec_name]['L_thres'].to_numpy()[0], 
+                                  + mouse[mouse['Recording'] == self.rec_name]['R_thres'].to_numpy()[0])
         
         # Get Channel
         self.unit = np.load(basepath + self.rec_name + '/FRA_unit.npy')
@@ -171,13 +172,15 @@ class Recording:
         for i in range(len(gaps)):
             gap_onset[i,1:]=np.array(GiN[GiN['gap']==gaps[i]]['start_time']+0.1)
         self.gap_onset = gap_onset
-    
+        
+        '''
         # Load phy_id and si_id match list
         qm = pd.read_csv(basepath + self.rec_name + '/we/quality_metrics/metrics.csv')
         si_id = np.array(qm.index)
         phy_id = qm['Unnamed: 0'].values
 
         # Load neuron_identity (phy_id)
+        
         filename = basepath + 'waveform/' + self.rec_name + '_waveform_analysis_label.npz'
         num = np.load(filename)['arr_0']
         label = np.load(filename)['arr_3']
@@ -188,7 +191,8 @@ class Recording:
             unit_id[i,1] = phy_id[np.where(si_id==self.unit[i])[0][0]]
             unit_id[i,2] = label[np.where(num==unit_id[i,1])][0]
         self.unit_id = unit_id
-    
+        '''
+        
     def Get_Neural_Response(self):
         bin = 1/1000
         samplerate = self.sorting.get_sampling_frequency()
@@ -239,7 +243,9 @@ class Recording:
                 spikes_per_gap.append(spikes_per_unit)
             spikes.append(spikes_per_gap)
 
-        sig_psth, self.unit_id = sig_psth[bkg_std>0], self.unit_id[bkg_std>0] #Only want responsive neurons?
+        sig_psth = sig_psth[bkg_std>0] #Only want responsive neurons
+        #self.unit_id = self.unit_id[bkg_std>0] 
+        
         return {'spike':spikes, 'sig_psth':sig_psth}
     
     def Get_Neural_Response_per_Gap(self):      

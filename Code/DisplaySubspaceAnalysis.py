@@ -69,7 +69,7 @@ def Display_Group(params, Group, Label, file_path = '../Images/'):
     if params.Standard_Subspace_Location:
         for subspace_name in ['On', 'Off', 'SustainedNoise', 'SustainedSilence']:
             sub_file_path = check_path(file_path + '/StandardSubspace/' + subspace_name + '/')
-            fig_Period_Location = subspace_analysis.Draw_Standard_Subspace_Location(Group, subspace_name, period_length = 50, offset_delay = 10)
+            fig_Period_Location = subspace_analysis.Draw_Standard_Subspace_Location(Group, subspace_name, period_length = 100, offset_delay = 10)
             SaveFig(fig_Period_Location, sub_file_path + 'Period_Location')
         print('Standard_Subspace_Location Completed!')
         plt.close('all')
@@ -77,18 +77,18 @@ def Display_Group(params, Group, Label, file_path = '../Images/'):
     if params.Standard_Subspace_Comparison:
         for subspace_name in ['On', 'Off', 'SustainedNoise', 'SustainedSilence']:
             sub_file_path = check_path(file_path + '/StandardSubspace/' + subspace_name + '/' + Label + '/')
-            fig_Result = subspace_analysis.Standard_Subspace_Comparison(Group, subspace_name, period_length = 50, offset_delay = 10)
+            fig_Result = subspace_analysis.Standard_Subspace_Comparison(Group, subspace_name, period_length = 100, offset_delay = 10)
             for i, method in enumerate(['Pairwise', 'CCA', 'RV', 'Trace']):
                 SaveFig(fig_Result[i], sub_file_path +  method)
         print('Standard_Subspace_Comparison Completed!')
         plt.close('all')
 
     if params.Subspace_Comparison_per_Gap:
-        #methods = ['Pairwise', 'CCA', 'RV', 'Trace']
-        methods = ['Trace']
+        methods = ['Pairwise', 'CCA', 'RV', 'Trace']
+        #methods = ['Trace']
         for subspace_name in ['On', 'Off', 'SustainedNoise', 'SustainedSilence']:
             sub_file_path = check_path(file_path + '/SubspaceEvolution/' + subspace_name + '/' + Label + '/')
-            fig, fig_Justification = subspace_analysis.Subspace_Similarity_for_All_Gaps(Group, subspace_name, methods, standard_period_length=50, period_length=50, offset_delay = 10)
+            fig, fig_Justification = subspace_analysis.Subspace_Similarity_for_All_Gaps(Group, subspace_name, methods, standard_period_length=100, period_length=100, offset_delay = 10)
             SaveFig(fig, sub_file_path +  'Summary')
             SaveFig(fig_Justification, sub_file_path +  'Summary_Justification')
         
@@ -121,7 +121,7 @@ def Display_Group(params, Group, Label, file_path = '../Images/'):
         methods = ['Trace']
         for method in methods:
             sub_file_path = check_path(file_path + '/BestSubspace/' + method + '/' + Label + '/')
-            fig_best_capacity, fig_explain_find_best_subspace = subspace_analysis.Period_Capacity_in_Subspace_Comparison(Group, method, max_on_capacity = 75, max_off_capacity = 100, max_timewindow = 100, offset_delay = 10) 
+            fig_best_capacity, fig_explain_find_best_subspace = subspace_analysis.Period_Capacity_in_Subspace_Comparison(Group, method, max_on_capacity = 100, max_off_capacity = 100, max_timewindow = 100, offset_delay = 10) 
             SaveFig(fig_best_capacity, sub_file_path + 'Best_Capacity')
             SaveFig(fig_explain_find_best_subspace, sub_file_path + 'Explain_Find_Best_Subspace')
         print('Subspace_Capacity_Determination Completed!')
@@ -165,6 +165,7 @@ def main(subspace_params, group_labels):
             sub_file_path = check_path(imagepath + 'SubspaceEvolution_OnOff/' + method +'/')
             SaveFig(fig_on, sub_file_path + 'OnSummary_Shared')
             SaveFig(fig_off, sub_file_path + 'OffSummary_Shared')
+            
             SaveFig(fig_off_sigmoid, sub_file_path + 'OffSummary_Shared_Sigmoid')
             
             fig_off_boundary, fig_off_threshold = subspace_analysis.Subspace_Comparison_All_Group_Property_Multiple_Timewindows(Groups, method)

@@ -45,17 +45,16 @@ class SubspaceParams:
 def main():
 
     projection_params = ProjectionParams(
-        Analysis_Explanation = True,
-        Low_Dim_Activity_Divergence_by_Space = True
+        Low_Dim_Activity_in_Different_Space = True
 
     )
     #DisplayProjectionAnalysis.main(projection_params, group_labels = ['WT_NonHL', 'WT_HL', 'Df1_NonHL', 'Df1_HL'])
-    #DisplayProjectionAnalysis.main(projection_params, group_labels = ['WT_NonHL'])
+    DisplayProjectionAnalysis.main(projection_params, group_labels = ['WT_NonHL'])
 
     subspace_params = SubspaceParams(
-        Standard_Subspace_Comparison = True
+        Subspace_Comparison_per_Gap = True
     )
-    DisplaySubspaceAnalysis.main(subspace_params, group_labels = ['WT_NonHL', 'WT_HL', 'Df1_NonHL', 'Df1_HL'])
+    #DisplaySubspaceAnalysis.main(subspace_params, group_labels = ['WT_NonHL', 'WT_HL', 'Df1_NonHL', 'Df1_HL'])
     #DisplaySubspaceAnalysis.main(subspace_params, group_labels = ['WT_NonHL'])
 
     unit_params = UnitParams(

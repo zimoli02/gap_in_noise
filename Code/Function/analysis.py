@@ -15,8 +15,6 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
 
 
-from ..UsedCode import dynamicalsystem as ds
-
 import sys
 from pathlib import Path
 current_script_path = Path(__file__).resolve()
