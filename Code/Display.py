@@ -49,13 +49,13 @@ def main():
 
     )
     #DisplayProjectionAnalysis.main(projection_params, group_labels = ['WT_NonHL', 'WT_HL', 'Df1_NonHL', 'Df1_HL'])
-    DisplayProjectionAnalysis.main(projection_params, group_labels = ['WT_NonHL'])
+    #DisplayProjectionAnalysis.main(projection_params, group_labels = ['WT_NonHL'])
 
     subspace_params = SubspaceParams(
-        Subspace_Comparison_per_Gap = True
+        Standard_Subspace_Comparison = True
     )
     #DisplaySubspaceAnalysis.main(subspace_params, group_labels = ['WT_NonHL', 'WT_HL', 'Df1_NonHL', 'Df1_HL'])
-    #DisplaySubspaceAnalysis.main(subspace_params, group_labels = ['WT_NonHL'])
+    DisplaySubspaceAnalysis.main(subspace_params, group_labels = ['Df1_HL'])
 
     unit_params = UnitParams(
         Single_Units=True

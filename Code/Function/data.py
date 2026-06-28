@@ -98,7 +98,6 @@ class Group:
                                        axis=0)
 
         return np.array(meta_psth[2:])
-
             
     def Get_Pop_Response_Standardized(self):
         def Normalize(pop_stand): 
